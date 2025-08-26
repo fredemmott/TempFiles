@@ -5,6 +5,7 @@ use base64::prelude::*;
 use clap::{Parser, Subcommand};
 use config::Config;
 use rand::prelude::*;
+use rocket::serde::json::serde_json;
 use rusqlite::Connection;
 use std::io::{Write, stdin, stdout};
 use url::Url;
@@ -58,6 +59,7 @@ fn init() {
     println!("Wrote config.toml:\n{}", &toml);
 
     recreate_database(&false);
+    generate_typescript();
 }
 fn add_user(username: &str, force: bool) {
     let conn = Connection::open("db.sqlite").unwrap();
@@ -70,9 +72,7 @@ fn add_user(username: &str, force: bool) {
     }
 
     let uuid = uuid::Uuid::new_v4().to_string();
-    let mut prf_seed = [0u8; 64];
-    let mut rng = rand::rng();
-    rng.fill(&mut prf_seed);
+    let prf_seed = rand::random::<[u8; 64]>();
     conn.execute(
         "INSERT INTO users (username, uuid, prf_seed) VALUES (?1, ?2, ?3)",
         (&username, &uuid, prf_seed.as_slice()),
@@ -81,17 +81,16 @@ fn add_user(username: &str, force: bool) {
     let user_id = conn.last_insert_rowid();
     println!("Added user {} with ID {}", username, user_id);
 
-    let mut token = [0u8; 64];
-    rng.fill(&mut token);
+    let token = rand::random::<[u8; 64]>();
     conn.execute(
         "INSERT INTO registration_tokens (user_id, token) VALUES (?1, ?2)",
         (user_id, token.as_slice()),
     )
     .unwrap();
     let mut register_url = Config::get().origin;
-    register_url.set_path("/register");
+    register_url.set_path(uri!(serve::register).path().to_string().as_ref());
     register_url.query_pairs_mut().append_pair(
-        "token",
+        "t",
         &base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token),
     );
     println!("Registration URL: {}", register_url);
@@ -132,6 +131,22 @@ enum Commands {
         force: bool,
     },
     Serve,
+    GenTS,
+}
+
+fn generate_typescript() {
+    let dest = "www/gen";
+    std::fs::create_dir_all(&dest).unwrap();
+    std::fs::write(
+        format!("{}/site-config.ts", &dest),
+        format!(
+            "export const CONFIG = {};",
+            serde_json::to_string_pretty(&Config::get()).unwrap(),
+        ),
+    )
+    .unwrap();
+
+    serve::generate_typescript(dest);
 }
 
 fn main() {
@@ -141,5 +156,6 @@ fn main() {
         Commands::AddUser { username, force } => add_user(username, force.to_owned()),
         Commands::RecreateDatabase { force } => recreate_database(force),
         Commands::Serve => serve::serve(),
+        Commands::GenTS => generate_typescript(),
     }
 }
