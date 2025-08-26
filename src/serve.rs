@@ -81,7 +81,6 @@ fn api_register_start(
     })
 }
 
-#[rocket::main]
 async fn rocket_main() -> Result<(), rocket::Error> {
     let site_config = Config::get();
     let config = rocket::Config {
@@ -101,8 +100,8 @@ async fn rocket_main() -> Result<(), rocket::Error> {
     Ok(())
 }
 
-pub fn serve() {
-    rocket_main().unwrap();
+pub async fn serve() -> Result<(), rocket::Error> {
+    rocket_main().await
 }
 
 pub fn generate_typescript(dest: &str) {

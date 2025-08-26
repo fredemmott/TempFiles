@@ -6,7 +6,8 @@ use clap::{Parser, Subcommand};
 use config::Config;
 use rand::prelude::*;
 use rocket::serde::json::serde_json;
-use rusqlite::Connection;
+use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::{query, raw_sql};
 use std::io::{Write, stdin, stdout};
 use url::Url;
 #[macro_use]
@@ -20,29 +21,35 @@ struct Cli {
     command: Commands,
 }
 
-static SCHEMA_SQL: &'static str = include_str!("schema.sql");
-fn init() {
-    let mut title = String::new();
-    print!("App title, e.g. 'Fred's Temp Files': ");
+async fn unpooled_db() -> Result<sqlx::SqliteConnection, sqlx::Error> {
+    let url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    sqlx::Connection::connect(&url).await
+}
+
+fn prompt(prompt: &str) -> Option<String> {
+    print!("{}", prompt);
     stdout().flush().unwrap();
-    stdin().read_line(&mut title).unwrap();
-    title = title.trim().to_string();
-    let mut origin = String::new();
-    print!("Origin URL, e.g. 'https://fred.example.com': ");
-    stdout().flush().unwrap();
-    stdin().read_line(&mut origin).unwrap();
-    origin = origin.trim().to_string();
+    let mut input = String::new();
+    stdin().read_line(&mut input).unwrap();
+    let result = input.trim().to_string();
+    if result.is_empty() {
+        None
+    } else {
+        Some(result)
+    }
+}
+
+async fn init() {
+    let title = prompt("App title, e.g. 'Fred's Temp Files': ").unwrap();
+    let origin = prompt("Origin URL, e.g. 'https://fred.example.com': ").unwrap();
     let origin_url = Url::parse(&origin).expect("Origin was not a valid URL");
     let domain = origin_url.domain().expect("Origin must include a domain");
     let default_rp_id = domain;
-    print!("Relying Party ID (default: `{}`): ", default_rp_id);
-    stdout().flush().unwrap();
-    let mut rp_id = String::new();
-    stdin().read_line(&mut rp_id).unwrap();
-    rp_id = rp_id.trim().to_string();
-    if rp_id.is_empty() {
-        rp_id = default_rp_id.to_string();
-    }
+    let rp_id = prompt(&format!(
+        "Relying Party ID (default: `{}`): ",
+        &default_rp_id
+    ))
+    .unwrap_or(default_rp_id.to_string());
 
     let suffix = format!(".{}", rp_id);
     if domain != rp_id && !domain.ends_with(&suffix) {
@@ -58,34 +65,50 @@ fn init() {
     std::fs::write("config.toml", &toml).expect("Could not write configuration file");
     println!("Wrote config.toml:\n{}", &toml);
 
-    recreate_database(&false);
     generate_typescript();
+
+    let user = prompt("Enter first username (blank to skip): ");
+    if let Some(user) = user {
+        add_user(&user, false).await;
+    }
 }
-fn add_user(username: &str, force: bool) {
-    let conn = Connection::open("db.sqlite").unwrap();
+async fn add_user(username: &str, force: bool) {
+    let mut conn = unpooled_db().await.unwrap();
     if force {
-        conn.execute("DELETE FROM users WHERE username = ?", (username,))
-            .unwrap();
-        if conn.changes() > 0 {
+        let deleted_rows = query!("DELETE FROM users WHERE username = ?", username)
+            .execute(&mut conn)
+            .await
+            .unwrap()
+            .rows_affected();
+        if deleted_rows > 0 {
             println!("Deleted existing user {}.", username);
         }
     }
 
     let uuid = uuid::Uuid::new_v4().to_string();
     let prf_seed = rand::random::<[u8; 64]>();
-    conn.execute(
+    let prf_seed_slice = prf_seed.as_slice();
+    let user_id = query!(
         "INSERT INTO users (username, uuid, prf_seed) VALUES (?1, ?2, ?3)",
-        (&username, &uuid, prf_seed.as_slice()),
+        username,
+        uuid,
+        prf_seed_slice,
     )
-    .unwrap();
-    let user_id = conn.last_insert_rowid();
+    .execute(&mut conn)
+    .await
+    .unwrap()
+    .last_insert_rowid();
     println!("Added user {} with ID {}", username, user_id);
 
     let token = rand::random::<[u8; 64]>();
-    conn.execute(
+    let token_slice = token.as_slice();
+    query!(
         "INSERT INTO registration_tokens (user_id, token) VALUES (?1, ?2)",
-        (user_id, token.as_slice()),
+        user_id,
+        token_slice
     )
+    .execute(&mut conn)
+    .await
     .unwrap();
     let mut register_url = Config::get().origin;
     register_url.set_path(uri!(serve::register).path().to_string().as_ref());
@@ -96,37 +119,11 @@ fn add_user(username: &str, force: bool) {
     println!("Registration URL: {}", register_url);
 }
 
-fn recreate_database(force: &bool) {
-    if std::fs::exists("db.sqlite").unwrap() {
-        if !force {
-            let mut recreate_db = String::new();
-            print!("DELETE and recreate database? ('yes', or anything else to skip): ");
-            stdout().flush().unwrap();
-            stdin().read_line(&mut recreate_db).unwrap();
-            recreate_db = recreate_db.trim().to_string();
-            if recreate_db != "yes" {
-                return;
-            }
-        }
-        std::fs::remove_file("db.sqlite").unwrap();
-        println!("Deleted existing database.");
-    }
-
-    let conn = Connection::open("db.sqlite").unwrap();
-    conn.execute_batch(SCHEMA_SQL).unwrap();
-    println!("Created empty database.");
-    println!("You can now run `cargo run add-user <username>` to add users.");
-}
-
 #[derive(Subcommand)]
 enum Commands {
     Init,
     AddUser {
         username: String,
-        #[arg(short, long)]
-        force: bool,
-    },
-    RecreateDatabase {
         #[arg(short, long)]
         force: bool,
     },
@@ -147,15 +144,17 @@ fn generate_typescript() {
     .unwrap();
 
     serve::generate_typescript(dest);
+    println!("Generated TypeScript files.");
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match &cli.command {
-        Commands::Init => init(),
-        Commands::AddUser { username, force } => add_user(username, force.to_owned()),
-        Commands::RecreateDatabase { force } => recreate_database(force),
-        Commands::Serve => serve::serve(),
+        Commands::Init => init().await,
+        Commands::AddUser { username, force } => add_user(username, force.to_owned()).await,
+        Commands::Serve => serve::serve().await?,
         Commands::GenTS => generate_typescript(),
     }
+    Ok(())
 }
