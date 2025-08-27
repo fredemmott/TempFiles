@@ -199,7 +199,7 @@ async fn api_register_finish(
     let token_base64 = &payload.token;
     let token = URL_SAFE_NO_PAD.decode(token_base64).unwrap();
 
-    let mut conn = db.acquire().await?;
+    let conn = db.acquire().await?;
     let mut tx = conn.begin().await?;
 
     let user = query!(
