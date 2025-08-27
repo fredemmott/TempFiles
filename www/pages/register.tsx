@@ -67,7 +67,7 @@ async function register(token: string, setState: (state: States.Any) => void): P
     credential,
     challenge_uuid: response.challenge_uuid,
   });
-  debugger;
+  setState({state: "registered"});
 }
 
 namespace States {
@@ -119,24 +119,28 @@ namespace States {
 
 export default function RegistrationPage() {
   const [state, setState] = useState<States.Any>({state: "initial"});
-  const [searchParams, _] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   let token = searchParams.get("t")!
-
-  useEffect(() => {
-    let cancelled = false;
-    register(token, setState);
-    return () => {
-      cancelled = true;
-    };
-  }, [/* no dependencies, only run once, when the component is mounted */]);
 
   switch (state.state) {
     case "initial":
-      return <div>Waiting for React...</div>;
-    case "requested-challenge":
+      return <>
+        <div>
+          Let's get started! It is <em>strongly</em> recommended that you use your phone as your passkey,
+          because for end-to-end encryption on other devices varies depending on the hardware, operating system,
+          and browser.
+        </div>
+        <button onClick={() => register(token, setState)}>Add Passkey</button>
+      </>;
+    case "submitting-challenge-response":
       return <div>Waiting for server...</div>;
     case "prompting-user":
       return <div>Follow your browser prompts to register your passkey.</div>;
+    case "registered":
+      if (token) {
+        setSearchParams({});
+      }
+      return <div>Your passkey has been registered! You can now login.</div>
     case "local-error":
       return <div>
         Something went wrong on this end: {state.message}.
