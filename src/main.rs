@@ -1,4 +1,8 @@
+mod api_error;
+mod app_db;
+mod app_html;
 mod config;
+mod routes;
 mod serve;
 
 use base64::prelude::*;

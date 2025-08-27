@@ -1,5 +1,5 @@
 import React from "react";
-import {useState, useEffect} from "react";
+import {useState} from "react";
 import {useSearchParams} from "react-router";
 import * as StartRegistration from "../api/register/start";
 import * as FinishRegistration from "../api/register/finish";
