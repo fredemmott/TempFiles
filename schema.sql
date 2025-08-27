@@ -1,8 +1,8 @@
 CREATE TABLE users
 (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  username   TEXT UNIQUE,
-  uuid       TEXT UNIQUE,
+  username   TEXT UNIQUE NOT NULL,
+  uuid       TEXT UNIQUE NOT NULL,
   prf_seed   TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

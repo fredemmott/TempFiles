@@ -4,10 +4,8 @@ mod serve;
 use base64::prelude::*;
 use clap::{Parser, Subcommand};
 use config::Config;
-use rand::prelude::*;
 use rocket::serde::json::serde_json;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{query, raw_sql};
+use sqlx::query;
 use std::io::{Write, stdin, stdout};
 use url::Url;
 #[macro_use]
@@ -149,6 +147,7 @@ fn generate_typescript() {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    dotenv::dotenv()?;
     let cli = Cli::parse();
     match &cli.command {
         Commands::Init => init().await,

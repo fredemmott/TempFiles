@@ -1,0 +1,5 @@
+[default]
+log_level = "debug"
+
+[default.databases.app_db]
+url = "sqlite:db.sqlite"

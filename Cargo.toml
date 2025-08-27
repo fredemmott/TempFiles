@@ -16,4 +16,5 @@ tokio = "1.47.1"
 ts-rs = { version = "11.0.1", features = ["uuid-impl"] }
 rocket_db_pools = { version = "0.2.0", features = ["sqlx_macros", "sqlx_sqlite"] }
 anyhow = "1.0.99"
-sqlx = { version = "^0.7", features = ["runtime-tokio", "sqlite", "macros"] }
+sqlx = { version = "^0.7", features = ["runtime-tokio", "sqlite", "macros", "uuid"] }
+dotenv = "0.15.0"
