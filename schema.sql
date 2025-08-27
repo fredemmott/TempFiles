@@ -19,15 +19,11 @@ CREATE TABLE registration_tokens
 
 CREATE TABLE passkeys
 (
-  id                             INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id                        INTEGER,
-  credential_id                  TEXT,
-  public_key                     TEXT,
-  attestation_type               TEXT,
-  authenticator_attestation_guid TEXT,
-  signature_count                INT,
-  transports                     TEXT,
-  registered_at                  DATETIME DEFAULT CURRENT_TIMESTAMP,
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL,
+  credential_id TEXT    NOT NULL,
+  public_key    TEXT    NOT NULL,
+  registered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 

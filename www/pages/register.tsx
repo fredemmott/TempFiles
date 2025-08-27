@@ -1,41 +1,29 @@
 import React from "react";
 import {useState, useEffect} from "react";
-import * as StartRegistration from "../api/register/start";
 import {useSearchParams} from "react-router";
-import {CONFIG} from "../gen/site-config";
+import * as StartRegistration from "../api/register/start";
+import * as FinishRegistration from "../api/register/finish";
+
+function decode_urlsafe_base64(encoded: String): Uint8Array {
+  encoded = encoded.replaceAll("-", "+").replaceAll("_", "/");
+  const padding = (4 - (encoded.length % 4)) % 4;
+  encoded += "=".repeat(padding);
+  // @ts-ignore TC39, but widely supported
+  return Uint8Array.fromBase64(encoded);
+}
 
 async function create_credential(server_data: StartRegistration.Response) {
-  const payload: CredentialCreationOptions = {
-    publicKey: {
-      attestation: "direct",
-      authenticatorSelection: {
-        authenticatorAttachment: "cross-platform",
-        userVerification: "discouraged",
-        residentKey: "required",
-      },
-      challenge: new Uint8Array(server_data.challenge),
-      rp: {
-        name: CONFIG.title,
-        id: CONFIG.rp_id,
-      },
-      pubKeyCredParams: [
-        {
-          type: "public-key",
-          alg: -7,
-        }
-      ],
-      timeout: 30000,
-      user: {
-        name: server_data.username,
-        displayName: server_data.username,
-        id: new TextEncoder().encode(server_data.user_uuid),
-      },
-      extensions: {prf: {}},
-      // @ts-ignore new feature
-      hints: ["hybrid"],
-    }
+  let challenge = server_data.challenge as any;
+  challenge.publicKey.user.id = decode_urlsafe_base64(challenge.publicKey.user.id);
+  challenge.publicKey.challenge = decode_urlsafe_base64(challenge.publicKey.challenge);
+  challenge.publicKey.hints = ["hybrid"];
+  challenge.publicKey.extensions = {prf: {}};
+  challenge.publicKey.authenticatorSelection = {
+    authenticatorAttachment: "cross-platform",
+    userVerification: "discouraged",
+    residentKey: "required",
   };
-  return await navigator.credentials.create(payload);
+  return await navigator.credentials.create(challenge as CredentialCreationOptions);
 }
 
 async function register(token: string, setState: (state: States.Any) => void): Promise<void> {
@@ -67,8 +55,19 @@ async function register(token: string, setState: (state: States.Any) => void): P
       case "NotAllowedError":
         setState({state: "local-error", message: `Permission denied by browser: "${e.message}"`});
         return;
+      default:
+        setState({state: "local-error", message: `Unknown error: ${e.name}: "${e.message}"`});
+        return;
     }
   }
+
+  setState({state: "submitting-challenge-response"});
+  await FinishRegistration.exec({
+    token,
+    credential,
+    challenge_uuid: response.challenge_uuid,
+  });
+  debugger;
 }
 
 namespace States {
@@ -85,6 +84,14 @@ namespace States {
     server_data: StartRegistration.Response,
   }
 
+  export interface SubmittingChallengeResponse {
+    state: "submitting-challenge-response";
+  }
+
+  export interface Registered {
+    state: "registered";
+  }
+
   export interface LocalError {
     state: "local-error";
     message: string;
@@ -95,11 +102,19 @@ namespace States {
     response: Response;
   }
 
-  export interface InvalidToken {
+  export interface InvalidTokenError {
     state: "invalid-token";
   }
 
-  export type Any = Initial | RequestedChallenge | PromptingUser | LocalError | ServerError | InvalidToken;
+  export type Any =
+    Initial
+    | RequestedChallenge
+    | PromptingUser
+    | SubmittingChallengeResponse
+    | Registered
+    | LocalError
+    | ServerError
+    | InvalidTokenError;
 }
 
 export default function RegistrationPage() {

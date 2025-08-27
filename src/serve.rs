@@ -5,6 +5,7 @@ use rocket_db_pools::{Connection, Database, sqlx};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use webauthn_rs::prelude::*;
 
 extern crate rocket;
 use rocket::http::Status;
@@ -13,7 +14,7 @@ use rocket::response::content::RawHtml;
 use rocket::serde::json::Json;
 use rocket::{Request, State, response};
 use serde::{Deserialize, Serialize};
-use sqlx::query;
+use sqlx::{Acquire, query};
 use ts_rs::TS;
 use uuid::Uuid;
 
@@ -41,8 +42,61 @@ pub fn register() -> RawHtml<String> {
 
 #[derive(Debug, Clone)]
 struct PendingRegistration {
-    challenge: [u8; 32],
+    user_id: i64,
     expires: Instant,
+    state: PasskeyRegistration,
+}
+
+#[derive(Debug)]
+enum ApiError {
+    NotFoundError(),
+    DatabaseError(sqlx::Error),
+    WebauthnError(WebauthnError),
+}
+
+impl From<sqlx::Error> for ApiError {
+    fn from(e: sqlx::Error) -> Self {
+        match e {
+            sqlx::Error::RowNotFound => ApiError::NotFoundError(),
+            _ => ApiError::DatabaseError(e),
+        }
+    }
+}
+
+impl From<WebauthnError> for ApiError {
+    fn from(e: WebauthnError) -> Self {
+        ApiError::WebauthnError(e)
+    }
+}
+
+impl<'r> Responder<'r, 'static> for ApiError {
+    fn respond_to(self, r: &'r Request<'_>) -> response::Result<'static> {
+        match self {
+            ApiError::NotFoundError() => Status::NotFound.respond_to(r),
+            ApiError::DatabaseError(e) => {
+                if cfg!(debug_assertions) {
+                    (
+                        Status::InternalServerError,
+                        format!("SQL error: {}", e.to_string()),
+                    )
+                        .respond_to(r)
+                } else {
+                    Status::InternalServerError.respond_to(r)
+                }
+            }
+            ApiError::WebauthnError(e) => {
+                if cfg!(debug_assertions) {
+                    (
+                        Status::InternalServerError,
+                        format!("Webauthn error: {}", e.to_string()),
+                    )
+                        .respond_to(r)
+                } else {
+                    Status::InternalServerError.respond_to(r)
+                }
+            }
+        }
+    }
 }
 
 type PendingRegistrations = Arc<Mutex<HashMap<Uuid, PendingRegistration>>>;
@@ -59,53 +113,24 @@ struct ApiRegisterStartRequest {
 #[serde(crate = "rocket::serde")]
 struct ApiRegisterStartResponse {
     challenge_uuid: Uuid,
-    challenge: [u8; 32],
     username: String,
     user_uuid: Uuid,
-}
-
-#[derive(Debug)]
-enum ApiError {
-    DatabaseError(sqlx::Error),
-}
-impl From<sqlx::Error> for ApiError {
-    fn from(e: sqlx::Error) -> Self {
-        ApiError::DatabaseError(e)
-    }
-}
-
-impl<'r> Responder<'r, 'static> for ApiError {
-    fn respond_to(self, r: &'r Request<'_>) -> response::Result<'static> {
-        match self {
-            ApiError::DatabaseError(e) => match e {
-                sqlx::Error::RowNotFound => Status::BadRequest.respond_to(r),
-                _ => {
-                    if cfg!(debug_assertions) {
-                        (
-                            Status::InternalServerError,
-                            format!("SQL error: {}", e.to_string()),
-                        )
-                            .respond_to(r)
-                    } else {
-                        Status::InternalServerError.respond_to(r)
-                    }
-                }
-            },
-        }
-    }
+    #[ts(type = "unknown")]
+    challenge: CreationChallengeResponse,
 }
 
 #[post("/api/register/start", data = "<payload>")]
 async fn api_register_start(
     mut db: Connection<AppDb>,
     payload: Json<ApiRegisterStartRequest>,
+    webauthn: &State<Webauthn>,
     registrations: &State<PendingRegistrations>,
 ) -> Result<Json<ApiRegisterStartResponse>, ApiError> {
     let token_base64 = &payload.token;
     let token = URL_SAFE_NO_PAD.decode(token_base64).unwrap();
     let user = query!(
         r#"
-    SELECT username, uuid
+    SELECT username, uuid, users.id as user_id
     FROM users JOIN registration_tokens
     ON users.id = registration_tokens.user_id
     WHERE registration_tokens.token = ?1
@@ -117,12 +142,14 @@ async fn api_register_start(
     .await?;
 
     let uuid = Uuid::new_v4();
-    let challenge = rand::random::<[u8; 32]>();
+    let (challenge, server_state) =
+        webauthn.start_passkey_registration(uuid, &user.username, &user.username, None)?;
 
     registrations.lock().unwrap().insert(
         uuid.clone(),
         PendingRegistration {
-            challenge: challenge.clone(),
+            state: server_state,
+            user_id: user.user_id,
             expires: Instant::now() + Duration::from_secs(300),
         },
     );
@@ -135,12 +162,93 @@ async fn api_register_start(
     }))
 }
 
+#[derive(Deserialize, TS)]
+#[ts(export)]
+struct ApiRegisterFinishRequest {
+    #[ts(type = "unknown")]
+    credential: RegisterPublicKeyCredential,
+    challenge_uuid: Uuid,
+    token: String,
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+struct ApiRegisterFinishResponse {}
+
+#[post("/api/register/finish", data = "<payload>")]
+async fn api_register_finish(
+    mut db: Connection<AppDb>,
+    payload: Json<ApiRegisterFinishRequest>,
+    webauthn: &State<Webauthn>,
+    registrations: &State<PendingRegistrations>,
+) -> Result<Json<ApiRegisterFinishResponse>, ApiError> {
+    let registration = registrations
+        .lock()
+        .unwrap()
+        .remove(&payload.challenge_uuid);
+    if registration.is_none() {
+        return Err(ApiError::NotFoundError());
+    }
+    let registration = registration.unwrap();
+    if registration.expires < Instant::now() {
+        return Err(ApiError::NotFoundError());
+    }
+
+    let passkey = webauthn.finish_passkey_registration(&payload.credential, &registration.state)?;
+
+    let token_base64 = &payload.token;
+    let token = URL_SAFE_NO_PAD.decode(token_base64).unwrap();
+
+    let mut conn = db.acquire().await?;
+    let mut tx = conn.begin().await?;
+
+    let user = query!(
+        r#"
+    SELECT username, users.id as user_id
+    FROM users JOIN registration_tokens
+    ON users.id = registration_tokens.user_id
+    WHERE registration_tokens.token = ?1
+    AND registration_tokens.expires_at > CURRENT_TIMESTAMP;
+    "#,
+        token
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    query!("DELETE FROM registration_tokens WHERE token = ?1", token)
+        .execute(&mut *tx)
+        .await?;
+
+    if user.user_id != registration.user_id {
+        return Err(ApiError::NotFoundError());
+    }
+
+    let passkey_id = passkey.cred_id().to_vec();
+    let passkey_json = serde_json::to_string(&passkey).unwrap().to_string();
+
+    query!(
+        "INSERT INTO passkeys (user_id, credential_id, public_key) VALUES (?1, ?2, ?3)",
+        user.user_id,
+        passkey_id,
+        passkey_json
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+
+    Ok(Json(ApiRegisterFinishResponse {}))
+}
+
 #[derive(rocket_db_pools::Database)]
 #[database("app_db")]
 struct AppDb(sqlx::SqlitePool);
 
 async fn rocket_main() -> Result<(), rocket::Error> {
     let site_config = Config::get();
+    let webauthn = WebauthnBuilder::new(&site_config.rp_id, &site_config.origin)
+        .expect("Invalid webauthn configuration")
+        .rp_name(&site_config.title)
+        .build()
+        .expect("Failed to build webauthn");
     let config = rocket::Config::figment()
         .merge(("port", site_config.origin.port().unwrap_or(80)))
         .merge((
@@ -151,8 +259,12 @@ async fn rocket_main() -> Result<(), rocket::Error> {
         .configure(config)
         .attach(AppDb::init())
         .manage(PendingRegistrations::new(Mutex::new(HashMap::new())))
+        .manage(webauthn)
         .manage(site_config)
-        .mount("/", routes![register, api_register_start])
+        .mount(
+            "/",
+            routes![register, api_register_start, api_register_finish,],
+        )
         .ignite()
         .await?
         .launch()
@@ -167,4 +279,6 @@ pub async fn serve() -> Result<(), rocket::Error> {
 pub fn generate_typescript(dest: &str) {
     ApiRegisterStartRequest::export_all_to(dest).unwrap();
     ApiRegisterStartResponse::export_all_to(dest).unwrap();
+    ApiRegisterFinishRequest::export_all_to(dest).unwrap();
+    ApiRegisterFinishResponse::export_all_to(dest).unwrap();
 }
