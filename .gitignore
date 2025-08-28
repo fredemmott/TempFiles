@@ -2,3 +2,4 @@ target
 *.swp
 *.sqlite
 .idea
+prf_seed.key

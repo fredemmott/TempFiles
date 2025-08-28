@@ -41,7 +41,7 @@ async fn rocket_main() -> Result<(), rocket::Error> {
         .manage(AppHtml::init())
         .manage(PendingRegistrations::default())
         .manage(PendingLogins::default())
-        .manage(PrfSeed::new())
+        .manage(PrfSeed::load_or_create())
         .manage(webauthn)
         .manage(site_config)
         .mount(
