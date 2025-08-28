@@ -36,14 +36,14 @@ impl PendingRegistrations {
 }
 
 #[derive(Deserialize, TS)]
-#[ts(export)]
+#[ts(export_to = "api/register/StartRequest.ts")]
 #[serde(crate = "rocket::serde")]
 pub struct StartRequest {
     token: String,
 }
 
 #[derive(Serialize, TS)]
-#[ts(export)]
+#[ts(export_to = "api/register/StartResponse.ts")]
 #[serde(crate = "rocket::serde")]
 pub struct StartResponse {
     challenge_uuid: Uuid,
@@ -75,7 +75,7 @@ pub async fn start(
     .fetch_one(&mut **db)
     .await?;
 
-    let uuid = Uuid::new_v4();
+    let uuid = user.uuid.parse::<Uuid>().unwrap();
     let (challenge, server_state) =
         webauthn.start_passkey_registration(uuid, &user.username, &user.username, None)?;
 
@@ -97,7 +97,7 @@ pub async fn start(
 }
 
 #[derive(Deserialize, TS)]
-#[ts(export)]
+#[ts(export_to = "api/register/FinishRequest.ts")]
 pub struct FinishRequest {
     #[ts(type = "unknown")]
     credential: RegisterPublicKeyCredential,
@@ -106,7 +106,7 @@ pub struct FinishRequest {
 }
 
 #[derive(Serialize, TS)]
-#[ts(export)]
+#[ts(export_to = "api/register/FinishResponse.ts")]
 pub struct FinishResponse {}
 
 #[post("/api/register/finish", data = "<payload>")]
@@ -116,11 +116,9 @@ pub async fn finish(
     webauthn: &State<Webauthn>,
     registrations: &State<PendingRegistrations>,
 ) -> Result<Json<FinishResponse>, ApiError> {
-    let registration = registrations.remove(&payload.challenge_uuid);
-    if registration.is_none() {
-        return Err(ApiError::NotFoundError());
-    }
-    let registration = registration.unwrap();
+    let registration = registrations
+        .remove(&payload.challenge_uuid)
+        .ok_or(ApiError::NotFoundError())?;
     if registration.expires < Instant::now() {
         return Err(ApiError::NotFoundError());
     }

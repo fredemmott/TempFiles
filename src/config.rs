@@ -8,7 +8,7 @@ pub struct Config {
     pub rp_id: String,
 }
 impl Config {
-    pub fn get() -> Self {
+    pub fn from_filesystem() -> Self {
         let text = std::fs::read_to_string("config.toml").unwrap();
         toml::from_str(&text).unwrap()
     }

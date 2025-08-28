@@ -2,6 +2,7 @@ mod api_error;
 mod app_db;
 mod app_html;
 mod config;
+mod prf_seed;
 mod routes;
 mod serve;
 
@@ -88,13 +89,10 @@ async fn add_user(username: &str, force: bool) {
     }
 
     let uuid = uuid::Uuid::new_v4().to_string();
-    let prf_seed = rand::random::<[u8; 64]>();
-    let prf_seed_slice = prf_seed.as_slice();
     let user_id = query!(
-        "INSERT INTO users (username, uuid, prf_seed) VALUES (?1, ?2, ?3)",
+        "INSERT INTO users (username, uuid) VALUES (?1, ?2)",
         username,
         uuid,
-        prf_seed_slice,
     )
     .execute(&mut conn)
     .await
@@ -112,7 +110,7 @@ async fn add_user(username: &str, force: bool) {
     .execute(&mut conn)
     .await
     .unwrap();
-    let mut register_url = Config::get().origin;
+    let mut register_url = Config::from_filesystem().origin;
     register_url.set_path(uri!(serve::register).path().to_string().as_ref());
     register_url.query_pairs_mut().append_pair(
         "t",
@@ -140,7 +138,7 @@ fn generate_typescript() {
         format!("{}/site-config.ts", &dest),
         format!(
             "export const CONFIG = {};",
-            serde_json::to_string_pretty(&Config::get()).unwrap(),
+            serde_json::to_string_pretty(&Config::from_filesystem()).unwrap(),
         ),
     )
     .unwrap();

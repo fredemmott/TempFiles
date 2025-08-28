@@ -17,7 +17,7 @@ impl AppHtml {
 
     fn get_content() -> String {
         include_str!("../www/app.html")
-            .replace("{{SITE_CONFIG_TITLE}}", &Config::get().title)
+            .replace("{{SITE_CONFIG_TITLE}}", &Config::from_filesystem().title)
             .replace(
                 "{{GENERATED_VITE_FOOTER}}",
                 r#"

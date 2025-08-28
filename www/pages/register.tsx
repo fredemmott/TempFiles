@@ -1,16 +1,9 @@
 import React from "react";
 import {useState} from "react";
-import {useSearchParams} from "react-router";
+import {Link, useSearchParams} from "react-router";
 import * as StartRegistration from "../api/register/start";
 import * as FinishRegistration from "../api/register/finish";
-
-function decode_urlsafe_base64(encoded: String): Uint8Array {
-  encoded = encoded.replaceAll("-", "+").replaceAll("_", "/");
-  const padding = (4 - (encoded.length % 4)) % 4;
-  encoded += "=".repeat(padding);
-  // @ts-ignore TC39, but widely supported
-  return Uint8Array.fromBase64(encoded);
-}
+import decode_urlsafe_base64 from "../decode_urlsafe_base64";
 
 async function create_credential(server_data: StartRegistration.Response) {
   let challenge = server_data.challenge as any;
@@ -140,7 +133,7 @@ export default function RegistrationPage() {
       if (token) {
         setSearchParams({});
       }
-      return <div>Your passkey has been registered! You can now login.</div>
+      return <div>Your passkey has been registered! You can now <Link to="/login">login</Link>.</div>
     case "local-error":
       return <div>
         Something went wrong on this end: {state.message}.
