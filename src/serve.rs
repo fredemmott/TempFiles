@@ -22,6 +22,11 @@ fn login(app_html: &State<AppHtml>) -> RawHtml<&str> {
     RawHtml(app_html.as_str())
 }
 
+#[get("/")]
+fn root(app_html: &State<AppHtml>) -> RawHtml<&str> {
+    RawHtml(app_html.as_str())
+}
+
 async fn rocket_main() -> Result<(), rocket::Error> {
     let site_config = Config::from_filesystem();
     let webauthn = WebauthnBuilder::new(&site_config.rp_id, &site_config.origin)
@@ -47,6 +52,7 @@ async fn rocket_main() -> Result<(), rocket::Error> {
         .mount(
             "/",
             routes![
+                root,
                 login,
                 register,
                 api::register::start,

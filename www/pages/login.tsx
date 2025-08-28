@@ -1,12 +1,14 @@
 import React, {useState} from "react";
 import * as StartLogin from "../api/login/start";
 import * as FinishLogin from "../api/login/finish";
+import * as Session from "../Session";
 import decode_urlsafe_base64 from "../decode_urlsafe_base64";
 // Deprecated due to native browser support, but as of 2025-08-28
 // Safari 18.6 is the latest stable Safari on MacOS, and hard-crashes
 // the tab in credential.toJSON() or JSON.stringify()
 import * as WebauthnJSON from "@github/webauthn-json/browser-ponyfill"
 import {CredentialRequestOptionsJSON} from "@github/webauthn-json/browser-ponyfill";
+import {NavigateFunction, useNavigate} from "react-router";
 
 namespace States {
   export interface Initial {
@@ -69,7 +71,7 @@ async function get_credential(server_data: StartLogin.Response): Promise<PublicK
   return credential;
 }
 
-async function login(setState: (state: States.Any) => void): Promise<void> {
+async function login(setState: (state: States.Any) => void, navigate: NavigateFunction): Promise<void> {
   setState({state: "requested-challenge"});
   let challenge = null;
   try {
@@ -118,33 +120,25 @@ async function login(setState: (state: States.Any) => void): Promise<void> {
     }
     throw ex;
   }
-  sessionStorage.setItem("uuid", result.session_id);
-  sessionStorage.setItem("username", result.username);
-  sessionStorage.setItem("server_prf_seed", challenge.prf_seed);
 
-  let prf = credential.getClientExtensionResults().prf;
-  if (prf && prf.results && prf.results.first) {
-    let source = prf.results.first;
-    if (source instanceof ArrayBuffer) {
-      source = new Uint8Array(source);
-    } else {
-      source = new Uint8Array(source.buffer);
-    }
-    // @ts-ignore toBase64() - TC39, but widely supported
-    sessionStorage.setItem("prf", source.toBase64());
-  } else {
-    sessionStorage.removeItem("prf");
-  }
-  debugger;
+  Session.initialize({
+    id: result.session_id,
+    username: result.username,
+    server_prf_seed: challenge.prf_seed,
+    credential,
+  });
+
   setState({state: "complete"});
+  navigate("/");
 }
 
 export default function LoginPage() {
   const [state, setState] = useState<States.Any>({state: "initial"});
+  const navigate = useNavigate();
 
   switch (state.state) {
     case "initial":
-      return <button onClick={() => login(setState)}>Login</button>;
+      return <button onClick={() => login(setState, navigate)}>Login</button>;
     case "requested-challenge":
       return <div>Waiting for server...</div>;
     default:
