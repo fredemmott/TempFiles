@@ -88,7 +88,9 @@ function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
     case "no_key":
       return <div>Couldn't derive decryption key</div>;
     case "loaded":
-      return <div>{decryptedFilename} at {file.created_at}</div>
+      return <div>
+        {file.is_e2ee ? <span title="File uses E2EE">🔐</span> : <span title="File does not use E2EE">🚨</span>}
+        {decryptedFilename} at {file.created_at}</div>
   }
 }
 
