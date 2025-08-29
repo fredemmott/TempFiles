@@ -1,5 +1,8 @@
+import decode_urlsafe_base64 from "./decode_urlsafe_base64";
+
 export interface InitData {
-  id: string,
+  session_id: string,
+  session_secret: string,
   username: string,
   server_prf_seed: string,
   credential: PublicKeyCredential,
@@ -8,7 +11,8 @@ export interface InitData {
 export function initialize(data: InitData): void {
   sessionStorage.clear();
 
-  sessionStorage.setItem("id", data.id);
+  sessionStorage.setItem("session_id", data.session_id);
+  sessionStorage.setItem("session_secret", data.session_secret);
   sessionStorage.setItem("username", data.username);
   sessionStorage.setItem("server_prf_seed", data.server_prf_seed);
 
@@ -26,13 +30,47 @@ export function initialize(data: InitData): void {
 }
 
 export function is_logged_in(): boolean {
-  return sessionStorage.getItem("id") !== null;
-}
-
-export function id(): string | null {
-  return sessionStorage.getItem("id");
+  return sessionStorage.getItem("username") !== null;
 }
 
 export function supports_e2ee(): boolean {
   return sessionStorage.getItem("prf") !== null;
+}
+
+async function hkdf_key(seed: string | null): Promise<CryptoKey | null> {
+  if (seed === null) {
+    return null;
+  }
+  return await crypto.subtle.importKey(
+    "raw",
+    decode_urlsafe_base64(seed),
+    "HKDF",
+    false,
+    ["deriveKey"]
+  );
+}
+
+export async function e2ee_hkdf_key(): Promise<CryptoKey | null> {
+  return await hkdf_key(sessionStorage.getItem("prf"));
+}
+
+export async function server_trust_hkdf_key(): Promise<CryptoKey> {
+  const key = await hkdf_key(sessionStorage.getItem("server_prf_seed"));
+  if (key === null) {
+    throw new Error("Server PRF seed is not set");
+  }
+  return key;
+}
+
+export function api_credentials(): { session_id: string, session_secret: string } {
+  if (is_logged_in()) {
+    return {
+      session_id: sessionStorage.getItem("session_id")!,
+      session_secret: sessionStorage.getItem("session_secret")!,
+    }
+  }
+  return {
+    session_id: "",
+    session_secret: "",
+  };
 }

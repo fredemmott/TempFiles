@@ -6,6 +6,7 @@ use crate::prf_seed::PrfSeed;
 use crate::routes::api;
 use crate::routes::api::login::PendingLogins;
 use crate::routes::api::register::PendingRegistrations;
+use crate::session::SessionStore;
 use base64::prelude::*;
 use rocket::State;
 use rocket::response::content::RawHtml;
@@ -47,6 +48,7 @@ async fn rocket_main() -> Result<(), rocket::Error> {
         .manage(PendingRegistrations::default())
         .manage(PendingLogins::default())
         .manage(PrfSeed::load_or_create())
+        .manage(SessionStore::default())
         .manage(webauthn)
         .manage(site_config)
         .mount(
@@ -55,6 +57,8 @@ async fn rocket_main() -> Result<(), rocket::Error> {
                 root,
                 login,
                 register,
+                api::files::list,
+                api::files::upload,
                 api::register::start,
                 api::register::finish,
                 api::login::start,

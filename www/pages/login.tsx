@@ -122,7 +122,8 @@ async function login(setState: (state: States.Any) => void, navigate: NavigateFu
   }
 
   Session.initialize({
-    id: result.session_id,
+    session_id: result.session_id,
+    session_secret: result.session_secret,
     username: result.username,
     server_prf_seed: challenge.prf_seed,
     credential,

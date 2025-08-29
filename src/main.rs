@@ -5,6 +5,7 @@ mod config;
 mod prf_seed;
 mod routes;
 mod serve;
+mod session;
 
 use base64::prelude::*;
 use clap::{Parser, Subcommand};

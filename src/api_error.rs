@@ -6,8 +6,16 @@ use webauthn_rs::prelude::WebauthnError;
 #[derive(Debug)]
 pub enum ApiError {
     NotFoundError(),
+    InvalidSessionError(),
     DatabaseError(sqlx::Error),
     WebauthnError(WebauthnError),
+    IOError(std::io::Error),
+}
+
+impl From<std::io::Error> for ApiError {
+    fn from(e: std::io::Error) -> Self {
+        ApiError::IOError(e)
+    }
 }
 
 impl From<sqlx::Error> for ApiError {
@@ -29,6 +37,18 @@ impl<'r> Responder<'r, 'static> for ApiError {
     fn respond_to(self, r: &'r Request<'_>) -> response::Result<'static> {
         match self {
             ApiError::NotFoundError() => Status::NotFound.respond_to(r),
+            ApiError::InvalidSessionError() => Status::Unauthorized.respond_to(r),
+            ApiError::IOError(e) => {
+                if cfg!(debug_assertions) {
+                    (
+                        Status::InternalServerError,
+                        format!("IO error: {}", e.to_string()),
+                    )
+                        .respond_to(r)
+                } else {
+                    Status::InternalServerError.respond_to(r)
+                }
+            }
             ApiError::DatabaseError(e) => {
                 if cfg!(debug_assertions) {
                     (

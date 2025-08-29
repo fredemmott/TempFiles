@@ -1,4 +1,4 @@
-export default function (encoded: String): Uint8Array {
+export default function (encoded: String): Uint8Array<ArrayBuffer> {
   encoded = encoded.replaceAll("-", "+").replaceAll("_", "/");
   const padding = (4 - (encoded.length % 4)) % 4;
   encoded += "=".repeat(padding);

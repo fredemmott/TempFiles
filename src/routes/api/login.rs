@@ -1,6 +1,7 @@
 use crate::api_error::ApiError;
 use crate::app_db::AppDb;
 use crate::prf_seed::PrfSeed;
+use crate::session::{SessionSecret, SessionStore};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::prelude::*;
 use rocket::State;
@@ -82,6 +83,7 @@ pub struct FinishRequest {
 pub struct FinishResponse {
     username: String,
     session_id: Uuid,
+    session_secret: SessionSecret,
 }
 
 #[post("/api/login/finish", data = "<payload>")]
@@ -90,6 +92,7 @@ pub async fn finish(
     payload: Json<FinishRequest>,
     logins: &State<PendingLogins>,
     webauthn: &State<Webauthn>,
+    sessions: &State<SessionStore>,
 ) -> Result<Json<FinishResponse>, ApiError> {
     let login = logins
         .remove(payload.challenge_uuid)
@@ -103,9 +106,10 @@ pub async fn finish(
     let user_uuid_string = user_uuid.to_string();
 
     let data = query!(
-        r#"SELECT users.username, passkeys.public_key
-    FROM users JOIN passkeys ON users.id = passkeys.user_id
-    WHERE users.uuid = ?1 AND passkeys.credential_id = ?2
+        r#"
+        SELECT users.id as user_id, users.username, passkeys.public_key, passkeys.id as passkey_id
+        FROM users JOIN passkeys ON users.id = passkeys.user_id
+        WHERE users.uuid = ?1 AND passkeys.credential_id = ?2
     "#,
         user_uuid_string,
         credential_id
@@ -128,11 +132,12 @@ pub async fn finish(
         return Err(ApiError::NotFoundError());
     }
 
-    let session_id = Uuid::new_v4();
+    let session = sessions.create(data.user_id, data.passkey_id);
 
     Ok(Json(FinishResponse {
-        session_id,
         username: data.username,
+        session_id: session.uuid().clone(),
+        session_secret: session.secret().clone(),
     }))
 }
 
