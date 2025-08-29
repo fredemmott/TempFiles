@@ -15,7 +15,7 @@ use uuid::Uuid;
 #[ts(export_to = "api/files/File.ts")]
 pub struct File {
     pub uuid: Uuid,
-    pub e2ee: bool,
+    pub is_e2ee: bool,
     pub salt: String,
     pub filename_iv: String,
     pub data_iv: String,
@@ -69,7 +69,7 @@ pub async fn list(
         .into_iter()
         .map(|row| File {
             uuid: row.uuid,
-            e2ee: row.e2ee_passkey_id.is_some(),
+            is_e2ee: row.e2ee_passkey_id.is_some(),
             salt: row.salt.unwrap(),
             filename_iv: row.filename_iv,
             data_iv: row.data_iv,
@@ -145,7 +145,7 @@ pub async fn upload(
     Ok(Json(UploadResponse {
         file: File {
             uuid,
-            e2ee: payload.is_e2ee,
+            is_e2ee: payload.is_e2ee,
             salt: payload.salt.clone(),
             filename_iv: payload.filename_iv.clone(),
             data_iv: payload.data_iv.clone(),

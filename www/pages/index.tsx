@@ -49,7 +49,7 @@ function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
     const load = async () => {
       let salt = a_to_uint8array(file.salt);
       let file_key = null;
-      if (file.e2ee) {
+      if (file.is_e2ee) {
         if (!hkdf_keys.e2ee_key) {
           setState("requires_e2ee");
           return;
