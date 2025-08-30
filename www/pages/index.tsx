@@ -169,7 +169,7 @@ function FilesList({files, hkdfKeys}: FilesListProps): ReactNode {
 
   return <table>
     <tbody>
-    {files.map((file, index) =>
+    {files.map((file) =>
       <FilesListEntry key={base64_encode(file.salt)} file={file} hkdf_keys={hkdfKeys}/>
     )}
     </tbody>
@@ -345,14 +345,7 @@ function FilePicker({onUpload}: FilePickerProps): ReactNode {
         if (files === null) {
           return;
         }
-        handleFiles(files)
-          .then(onUpload)
-          .catch((ex) => {
-            debugger;
-          })
-          .finally(() => {
-            debugger;
-          });
+        handleFiles(files).then(onUpload);
       }}
     />;
 
