@@ -97,25 +97,62 @@ function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
     load().then(() => setState("loaded"));
   }, []);
 
+  const createdAt = new Date(Number(file.created_at) * 1000);
+  const now = new Date();
+
+  const createdOnDate = new Date(createdAt);
+  createdOnDate.setHours(0, 0, 0, 0);
+  const nowDate = new Date(now);
+  nowDate.setHours(0, 0, 0, 0);
+
+  let time = createdAt.toLocaleTimeString();
+  let date = null;
+  const dayInMs = 24 * 60 * 60 * 1000;
+  if (nowDate.getTime() === createdOnDate.getTime()) {
+    date = 'Today';
+  } else if (nowDate.getTime() - createdOnDate.getTime() < dayInMs) {
+    date = 'Yesterday';
+  } else if (nowDate.getTime() - createdOnDate.getTime() < 7 * dayInMs) {
+    date = new Intl.DateTimeFormat('en-US', {weekday: 'long'}).format(createdAt);
+  }
+
   switch (state) {
     case "loading":
-      return <div>Loading...</div>;
+      return <tr>
+        <td colSpan={2}>Loading...</td>
+        <td>{time}</td>
+        <td>{date}</td>
+      </tr>;
     case "requires_e2ee":
-      return <div>E2EE-encrypted file, but couldn't derive E2EE seed.</div>;
+      return <tr>
+        <td>🔒</td>
+        <td>Requires a different passkey</td>
+        <td>{time}</td>
+        <td>{date}</td>
+      </tr>;
     case "no_key":
-      return <div>Couldn't derive decryption key</div>;
+      return <tr>
+        <td>⚠️</td>
+        <td>Unable to derive E2EE key</td>
+        <td>{time}</td>
+        <td>{date}</td>
+      </tr>;
     case "loaded":
-      return <div>
-        {file.is_e2ee ? <span title="File uses E2EE">🔐</span> : <span title="File does not use E2EE">🚨</span>}
-        <a href="" onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          downloadFile(
-            file,
-            key!,
-            decryptedFilename!,
-          );
-        }}>{decryptedFilename}</a> at {file.created_at}</div>
+      return <tr>
+        {file.is_e2ee ? <td title="File uses E2EE">🔐</td> : <td title="File does not use E2EE">🚨</td>}
+        <td>
+          <a href="" onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            downloadFile(
+              file,
+              key!,
+              decryptedFilename!,
+            );
+          }}>{decryptedFilename}</a></td>
+        <td>{time}</td>
+        <td>{date}</td>
+      </tr>;
   }
 }
 
@@ -128,9 +165,11 @@ function FilesList({files, hkdfKeys}: FilesListProps): ReactNode {
   if (files.length === 0 || hkdfKeys === null) {
     return <div>No usable files are available for download.</div>
   }
-  return <div>{files.map((file, index) =>
+  files = files.toSorted((a, b) => Number(b.created_at - a.created_at));
+
+  return <table>{files.map((file, index) =>
     <FilesListEntry key={index} file={file} hkdf_keys={hkdfKeys}/>
-  )}</div>
+  )}</table>
 }
 
 interface HKDFKeys {
