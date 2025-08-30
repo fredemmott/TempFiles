@@ -1,4 +1,5 @@
 import base64_decode from "./base64_decode";
+import base64_encode from "./base64_encode";
 
 export interface InitData {
   session: string,
@@ -18,12 +19,10 @@ export function initialize(data: InitData): void {
   if (prf && prf.results && prf.results.first) {
     let source = prf.results.first;
     if (source instanceof ArrayBuffer) {
-      source = new Uint8Array(source);
+      sessionStorage.setItem("prf", base64_encode(new Uint8Array(source)));
     } else {
-      source = new Uint8Array(source.buffer);
+      sessionStorage.setItem("prf", base64_encode(new Uint8Array(source.buffer)));
     }
-    // @ts-ignore toBase64() - TC39, but widely supported
-    sessionStorage.setItem("prf", source.toBase64());
   }
 }
 
