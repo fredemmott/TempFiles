@@ -7,6 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use ts_rs::TS;
 
 #[derive(TS, Debug, Clone, Hash, PartialEq, Eq)]
@@ -72,6 +73,7 @@ pub struct Session {
     secret: SessionSecret,
     user_id: i64,
     passkey_id: i64,
+    expires: Instant,
 }
 
 impl Session {
@@ -96,6 +98,7 @@ pub struct SessionStore {
 impl SessionStore {
     pub fn create(self: &Self, user_id: i64, passkey_id: i64) -> Session {
         let session = Session {
+            expires: Instant::now() + Duration::from_secs(60 * 60),
             secret: SessionSecret::new(),
             user_id,
             passkey_id,
@@ -109,7 +112,13 @@ impl SessionStore {
     }
 
     pub fn get<T: AsRef<SessionSecret>>(self: &Self, secret: T) -> Option<Session> {
-        self.sessions.lock().unwrap().get(secret.as_ref()).cloned()
+        match self.sessions.lock().unwrap().get_mut(secret.as_ref()) {
+            Some(session) if session.expires > Instant::now() => {
+                session.expires = Instant::now() + Duration::from_secs(60 * 60);
+                Some(session.clone())
+            }
+            _ => None,
+        }
     }
 }
 

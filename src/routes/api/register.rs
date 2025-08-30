@@ -31,7 +31,10 @@ impl PendingRegistrations {
         self.data.lock().unwrap().insert(uuid, registration);
     }
     pub fn remove(&self, uuid: &Uuid) -> Option<PendingRegistration> {
-        self.data.lock().unwrap().remove(uuid)
+        match self.data.lock().unwrap().remove(uuid) {
+            Some(v) if v.expires > Instant::now() => Some(v),
+            _ => None,
+        }
     }
 }
 
@@ -119,9 +122,6 @@ pub async fn finish(
     let registration = registrations
         .remove(&payload.challenge_uuid)
         .ok_or(ApiError::NotFoundError())?;
-    if registration.expires < Instant::now() {
-        return Err(ApiError::NotFoundError());
-    }
 
     let passkey = webauthn.finish_passkey_registration(&payload.credential, &registration.state)?;
 

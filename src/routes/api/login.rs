@@ -28,17 +28,22 @@ pub struct PendingLogins {
 }
 
 impl PendingLogins {
-    pub fn add(&self, uuid: Uuid, state: DiscoverableAuthentication) {
+    pub fn add(&self, state: DiscoverableAuthentication) -> Uuid {
+        let uuid = Uuid::new_v4();
         self.data.lock().unwrap().insert(
             uuid,
             PendingLogin {
-                expires: Instant::now() + std::time::Duration::from_secs(60),
+                expires: Instant::now() + std::time::Duration::from_secs(300),
                 state,
             },
         );
+        uuid
     }
     pub fn remove(&self, uuid: Uuid) -> Option<PendingLogin> {
-        self.data.lock().unwrap().remove(&uuid)
+        match self.data.lock().unwrap().remove(&uuid) {
+            Some(v) if v.expires > Instant::now() => Some(v),
+            _ => None,
+        }
     }
 }
 
@@ -59,8 +64,7 @@ pub async fn start(
     prf_seed: &State<PrfSeed>,
 ) -> Result<Json<StartResponse>, ApiError> {
     let (challenge, state) = webauthn.start_discoverable_authentication()?;
-    let uuid = Uuid::new_v4();
-    logins.add(uuid, state);
+    let uuid = logins.add(state);
     Ok(Json(StartResponse {
         challenge_uuid: uuid,
         challenge,
@@ -96,9 +100,6 @@ pub async fn finish(
     let login = logins
         .remove(payload.challenge_uuid)
         .ok_or(ApiError::NotFoundError())?;
-    if login.expires < Instant::now() {
-        return Err(ApiError::NotFoundError());
-    }
 
     let (user_uuid, credential_id) =
         webauthn.identify_discoverable_authentication(&payload.credential)?;
