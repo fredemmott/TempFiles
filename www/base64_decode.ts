@@ -12,5 +12,5 @@ export default function base64_decode(encoded: string): Uint8Array<ArrayBuffer> 
   if (Uint8Array.fromBase64) {
     return Uint8Array.fromBase64(encoded);
   }
-  return Uint8Array.from(btoa(encoded), (c) => c.charCodeAt(0));
+  return Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0));
 }
