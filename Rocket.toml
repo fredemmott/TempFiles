@@ -1,5 +1,17 @@
 [default]
 log_level = "debug"
+port = 8080
+
+[default.limits]
+file = "128 MiB"
 
 [default.databases.app_db]
 url = "sqlite:db.sqlite"
+
+[debug.vite]
+type = "Dev"
+origin = "http://localhost:5173"
+
+[release.vite]
+type = "Release"
+root = "www/dist"

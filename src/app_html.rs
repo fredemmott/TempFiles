@@ -2,6 +2,13 @@ use crate::config::Config;
 use serde::Deserialize;
 use std::collections::HashMap;
 
+#[derive(Deserialize)]
+#[serde(tag = "type")]
+pub enum ViteConfig {
+    Dev { origin: String },
+    Release { root: String },
+}
+
 pub struct AppHtml {
     content: String,
 }
@@ -11,38 +18,46 @@ impl AppHtml {
         &self.content
     }
 
-    pub fn init() -> Self {
+    pub fn init(vite_config: &ViteConfig) -> Self {
         Self {
-            content: Self::get_content(),
+            content: Self::get_content(vite_config),
         }
     }
 
-    fn get_content() -> String {
-        let footer = Self::get_vite_footer();
+    fn get_content(vite_config: &ViteConfig) -> String {
+        let footer = Self::get_vite_footer(vite_config);
         include_str!("../www/app.html")
             .replace("{{SITE_CONFIG_TITLE}}", &Config::from_filesystem().title)
             .replace("{{GENERATED_VITE_FOOTER}}", footer.as_ref())
     }
 
-    #[cfg(debug_assertions)]
-    fn get_vite_footer() -> &'static str {
-        r#"
+    fn get_vite_footer(vite_config: &ViteConfig) -> String {
+        match vite_config {
+            ViteConfig::Dev { origin } => Self::get_vite_dev_footer(&origin),
+            ViteConfig::Release { root } => Self::get_vite_release_footer(&root),
+        }
+    }
+
+    fn get_vite_dev_footer(origin: &str) -> String {
+        format!(
+            r#"
 <script type="module">
-  import RefreshRuntime from 'http://localhost:5173/@react-refresh'
+  import RefreshRuntime from '{0}/@react-refresh'
   RefreshRuntime.injectIntoGlobalHook(window)
-  window.$RefreshReg$ = () => {}
+  window.$RefreshReg$ = () => {{}}
   window.$RefreshSig$ = () => (type) => type
   window.__vite_plugin_react_preamble_installed__ = true
 </script>
-<script type="module" src="http://localhost:5173/@vite/client"></script>
-<script type="module" src="http://localhost:5173/app.tsx"></script>
-"#
+<script type="module" src="{0}/@vite/client"></script>
+<script type="module" src="{0}/app.tsx"></script>
+"#,
+            origin
+        )
     }
 
-    #[cfg(not(debug_assertions))]
-    fn get_vite_footer() -> String {
+    fn get_vite_release_footer(root: &str) -> String {
         let map: ViteManifest = serde_json::from_str(
-            std::fs::read_to_string("www/dist/.vite/manifest.json")
+            std::fs::read_to_string(format!("{}/.vite/manifest.json", root))
                 .unwrap()
                 .as_str(),
         )

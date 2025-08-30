@@ -1,13 +1,12 @@
 extern crate rocket;
 use crate::app_db::AppDb;
-use crate::app_html::AppHtml;
+use crate::app_html::{AppHtml, ViteConfig};
 use crate::config::Config;
 use crate::prf_seed::PrfSeed;
 use crate::routes::api;
 use crate::routes::api::login::PendingLogins;
 use crate::routes::api::register::PendingRegistrations;
 use crate::session::SessionStore;
-use base64::prelude::*;
 use rocket::State;
 use rocket::fs::FileServer;
 use rocket::response::content::RawHtml;
@@ -36,16 +35,14 @@ async fn rocket_main() -> Result<(), rocket::Error> {
         .rp_name(&site_config.title)
         .build()
         .expect("Failed to build webauthn");
-    let config = rocket::Config::figment()
-        .merge(("port", site_config.origin.port().unwrap_or(80)))
-        .merge((
-            "secret_key",
-            BASE64_STANDARD.encode(rand::random::<[u8; 64]>()),
-        ));
-    rocket::build()
+    let config = rocket::Config::figment();
+    let vite_config: ViteConfig = config
+        .extract_inner("vite")
+        .expect("Invalid vite configuration");
+    let mut rocket = rocket::build()
         .configure(config)
         .attach(AppDb::init())
-        .manage(AppHtml::init())
+        .manage(AppHtml::init(&vite_config))
         .manage(PendingRegistrations::default())
         .manage(PendingLogins::default())
         .manage(PrfSeed::load_or_create())
@@ -67,12 +64,14 @@ async fn rocket_main() -> Result<(), rocket::Error> {
                 api::login::start,
                 api::login::finish,
             ],
-        )
-        .mount("/assets", FileServer::from("www/dist/assets"))
-        .ignite()
-        .await?
-        .launch()
-        .await?;
+        );
+    match vite_config {
+        ViteConfig::Release { root } => {
+            rocket = rocket.mount("/assets", FileServer::from(format!("{}/assets", root)));
+        }
+        _ => (),
+    }
+    rocket.ignite().await?.launch().await?;
     Ok(())
 }
 
