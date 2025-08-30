@@ -1,68 +1,80 @@
+use crate::api_error::ApiError;
 use base64::prelude::*;
-use rocket::form::{FromFormField, ValueField};
-use serde::{Deserialize, Serialize, Serializer};
+use rocket::http::Status;
+use rocket::request::{FromRequest, Outcome};
+use rocket::{Request, State};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Mutex;
 use ts_rs::TS;
-use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq, TS)]
+#[derive(TS, Debug, Clone, Hash, PartialEq, Eq)]
 #[ts(type = "string")]
 pub struct SessionSecret {
     value: [u8; 32],
 }
+
 impl SessionSecret {
     pub fn new() -> Self {
         Self {
             value: rand::random(),
         }
     }
+}
 
-    fn from_base64(data: &str) -> Self {
-        let bytes = BASE64_STANDARD_NO_PAD.decode(data.as_bytes()).unwrap();
-        Self {
-            value: bytes.try_into().unwrap(),
-        }
+impl AsRef<SessionSecret> for SessionSecret {
+    fn as_ref(&self) -> &SessionSecret {
+        self
     }
 }
+
 impl Serialize for SessionSecret {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let encoded = BASE64_STANDARD_NO_PAD.encode(self.value);
+        let encoded = BASE64_URL_SAFE_NO_PAD.encode(&self.value);
         serializer.serialize_str(&encoded)
     }
 }
+
 impl<'de> Deserialize<'de> for SessionSecret {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         let encoded = String::deserialize(deserializer)?;
-        Ok(Self::from_base64(&encoded))
+        match BASE64_URL_SAFE_NO_PAD.decode(&encoded) {
+            Ok(decoded) => Ok(Self {
+                value: decoded.try_into().unwrap(),
+            }),
+            Err(_) => Err(serde::de::Error::custom("Invalid session secret")),
+        }
     }
 }
-#[rocket::async_trait]
-impl<'r> FromFormField<'r> for SessionSecret {
-    fn from_value(field: ValueField<'r>) -> rocket::form::Result<'r, Self> {
-        Ok(Self::from_base64(&field.value))
+
+impl FromStr for SessionSecret {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match BASE64_URL_SAFE_NO_PAD.decode(s) {
+            Ok(decoded) => Ok(Self {
+                value: decoded.try_into().map_err(|_| ())?,
+            }),
+            Err(_) => Err(()),
+        }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Session {
-    uuid: Uuid,
     secret: SessionSecret,
     user_id: i64,
     passkey_id: i64,
 }
 
 impl Session {
-    pub fn uuid(&self) -> &Uuid {
-        &self.uuid
-    }
-
     pub fn secret(&self) -> &SessionSecret {
         &self.secret
     }
@@ -78,27 +90,46 @@ impl Session {
 
 #[derive(Default)]
 pub struct SessionStore {
-    sessions: Mutex<HashMap<Uuid, Session>>,
+    sessions: Mutex<HashMap<SessionSecret, Session>>,
 }
 
 impl SessionStore {
     pub fn create(self: &Self, user_id: i64, passkey_id: i64) -> Session {
-        let uuid = Uuid::new_v4();
         let session = Session {
-            uuid,
             secret: SessionSecret::new(),
             user_id,
             passkey_id,
         };
 
-        self.sessions.lock().unwrap().insert(uuid, session.clone());
+        self.sessions
+            .lock()
+            .unwrap()
+            .insert(session.secret().clone(), session.clone());
         session
     }
 
-    pub fn get(self: &Self, uuid: &Uuid, secret: &SessionSecret) -> Option<Session> {
-        match self.sessions.lock().unwrap().get(uuid) {
-            Some(session) if session.secret == *secret => Some(session.clone()),
-            _ => None,
+    pub fn get<T: AsRef<SessionSecret>>(self: &Self, secret: T) -> Option<Session> {
+        self.sessions.lock().unwrap().get(secret.as_ref()).cloned()
+    }
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for Session {
+    type Error = ApiError;
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        match request.headers().get_one("Authorization") {
+            Some(header) if header.starts_with("Bearer ") => {
+                let encoded = header.strip_prefix("Bearer ").unwrap();
+                let secret = SessionSecret::from_str(encoded).unwrap();
+
+                let store = request.guard::<&State<SessionStore>>().await.unwrap();
+                let session = store.get(secret);
+                match session {
+                    Some(session) => Outcome::Success(session),
+                    None => Outcome::Error((Status::Unauthorized, ApiError::InvalidSessionError())),
+                }
+            }
+            _ => Outcome::Error((Status::Unauthorized, ApiError::InvalidSessionError())),
         }
     }
 }

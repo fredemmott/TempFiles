@@ -1,16 +1,19 @@
-import {ListRequest} from "../../gen/api/files/ListRequest";
 import {ListResponse} from "../../gen/api/files/ListResponse";
+import * as Session from "../../Session";
 
-export type {ListRequest as Request, ListResponse as Response}
+export type {ListResponse as Response}
 
 function base64_decode(encoded: string): Uint8Array<ArrayBuffer> {
   const str = atob(encoded);
   return Uint8Array.from(str, (c) => c.charCodeAt(0));
 }
 
-export async function exec(request: ListRequest): Promise<ListResponse> {
+export async function exec(): Promise<ListResponse> {
   const endpoint = "/api/files/list";
-  const response = await fetch(endpoint, {method: "POST", body: JSON.stringify(request)});
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {"Authorization": `Bearer ${Session.token()}`},
+  });
   if (!response.ok) {
     throw response;
   }

@@ -1,8 +1,7 @@
 import decode_urlsafe_base64 from "./decode_urlsafe_base64";
 
 export interface InitData {
-  session_id: string,
-  session_secret: string,
+  session: string,
   username: string,
   server_prf_seed: string,
   credential: PublicKeyCredential,
@@ -11,8 +10,7 @@ export interface InitData {
 export function initialize(data: InitData): void {
   sessionStorage.clear();
 
-  sessionStorage.setItem("session_id", data.session_id);
-  sessionStorage.setItem("session_secret", data.session_secret);
+  sessionStorage.setItem("session_token", data.session);
   sessionStorage.setItem("username", data.username);
   sessionStorage.setItem("server_prf_seed", data.server_prf_seed);
 
@@ -62,15 +60,10 @@ export async function server_trust_hkdf_key(): Promise<CryptoKey> {
   return key;
 }
 
-export function api_credentials(): { session_id: string, session_secret: string } {
-  if (is_logged_in()) {
-    return {
-      session_id: sessionStorage.getItem("session_id")!,
-      session_secret: sessionStorage.getItem("session_secret")!,
-    }
+export function token(): string {
+  const token = sessionStorage.getItem("session_token");
+  if (token === null) {
+    throw new Error("Session token is not set");
   }
-  return {
-    session_id: "",
-    session_secret: "",
-  };
+  return token;
 }

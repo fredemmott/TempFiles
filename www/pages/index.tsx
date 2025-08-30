@@ -32,9 +32,7 @@ function E2EEWarning(): ReactNode {
 }
 
 async function fetch_files_list(setFiles: (files: Array<APIFile>) => void) {
-  const response = await ListFiles.exec({
-    ...Session.api_credentials(),
-  });
+  const response = await ListFiles.exec();
   setFiles(response.files);
 }
 
@@ -44,7 +42,7 @@ interface FileListEntryProps {
 }
 
 async function download_file(api_file: APIFile, key: CryptoKey, filename: string) {
-  const encrypted = await DownloadFile.exec({uuid: api_file.uuid, ...Session.api_credentials()});
+  const encrypted = await DownloadFile.exec({uuid: api_file.uuid});
   const decrypted = await decrypt(key, api_file.data_iv, encrypted);
   const url = URL.createObjectURL(new Blob([decrypted]));
   const link = document.createElement('a');
@@ -300,7 +298,6 @@ async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null) 
     data_iv: crypto_params.data_iv,
     encrypted_filename,
     encrypted_data,
-    ...Session.api_credentials()
   }
   const response = await UploadFile.exec(request);
 

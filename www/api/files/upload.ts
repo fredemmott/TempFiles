@@ -1,5 +1,6 @@
 import {UploadRequest} from "../../gen/api/files/UploadRequest";
 import {UploadResponse} from "../../gen/api/files/UploadResponse";
+import * as Session from "../../Session";
 
 export type {UploadRequest as Request, UploadResponse as Response}
 
@@ -27,7 +28,11 @@ export async function exec(request: UploadRequest): Promise<UploadResponse> {
   }
 
   const endpoint = "/api/files/upload";
-  const response = await fetch(endpoint, {method: "POST", body: form_request});
+  const response = await fetch(endpoint, {
+    method: "POST",
+    body: form_request,
+    headers: {"Authorization": `Bearer ${Session.token()}`},
+  });
   if (!response.ok) {
     throw response;
   }

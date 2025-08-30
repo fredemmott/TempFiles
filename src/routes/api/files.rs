@@ -1,7 +1,6 @@
 use crate::api_error::ApiError;
 use crate::app_db::AppDb;
-use crate::session::{SessionSecret, SessionStore};
-use rocket::State;
+use crate::session::Session;
 use rocket::form::Form;
 use rocket::fs::{NamedFile, TempFile};
 use rocket::serde::json::Json;
@@ -29,14 +28,6 @@ pub struct File {
     pub encrypted_filename: String,
 }
 
-#[derive(Deserialize, TS)]
-#[ts(export_to = "api/files/ListRequest.ts")]
-#[serde(crate = "rocket::serde")]
-pub struct ListRequest {
-    session_id: Uuid,
-    session_secret: SessionSecret,
-}
-
 #[derive(Serialize, TS)]
 #[ts(export_to = "api/files/ListResponse.ts")]
 #[serde(crate = "rocket::serde")]
@@ -44,15 +35,11 @@ pub struct ListResponse {
     files: Vec<File>,
 }
 
-#[post("/api/files/list", data = "<payload>")]
+#[post("/api/files/list")]
 pub async fn list(
     mut db: Connection<AppDb>,
-    payload: Json<ListRequest>,
-    sessions: &State<SessionStore>,
+    session: Session,
 ) -> Result<Json<ListResponse>, ApiError> {
-    let session = sessions
-        .get(&payload.session_id, &payload.session_secret)
-        .ok_or(ApiError::InvalidSessionError())?;
     let user_id = session.user_id();
     let passkey_id = session.passkey_id();
     let rows = query!(
@@ -101,8 +88,6 @@ pub struct UploadRequest<'r> {
 
     #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub encrypted_data: TempFile<'r>,
-    pub session_id: Uuid,
-    pub session_secret: SessionSecret,
 }
 
 #[derive(Serialize, TS)]
@@ -128,11 +113,8 @@ fn uploaded_file_path(uuid: &Uuid) -> Result<PathBuf, std::io::Error> {
 pub async fn upload(
     mut db: Connection<AppDb>,
     mut payload: Form<UploadRequest<'_>>,
-    sessions: &State<SessionStore>,
+    session: Session,
 ) -> Result<Json<UploadResponse>, ApiError> {
-    let session = sessions
-        .get(&payload.session_id, &payload.session_secret)
-        .ok_or(ApiError::InvalidSessionError())?;
     let uuid = Uuid::new_v4();
     let path = uploaded_file_path(&uuid)?;
 
@@ -179,19 +161,14 @@ pub async fn upload(
 #[ts(export_to = "api/files/DownloadRequest.ts")]
 pub struct DownloadRequest {
     pub uuid: Uuid,
-    pub session_id: Uuid,
-    pub session_secret: SessionSecret,
 }
 
 #[post("/api/files/download", data = "<payload>")]
 pub async fn download(
     mut db: Connection<AppDb>,
     payload: Json<DownloadRequest>,
-    sessions: &State<SessionStore>,
+    session: Session,
 ) -> Result<NamedFile, ApiError> {
-    let session = sessions
-        .get(&payload.session_id, &payload.session_secret)
-        .ok_or(ApiError::InvalidSessionError())?;
     let user_id = session.user_id();
     // Deleting the salt is effectively deleting it, as we can't decrypt.
     //
@@ -214,7 +191,6 @@ pub async fn download(
 pub fn generate_typescript(dest: &str) {
     DownloadRequest::export_all_to(dest).unwrap();
     File::export_all_to(dest).unwrap();
-    ListRequest::export_all_to(dest).unwrap();
     ListResponse::export_all_to(dest).unwrap();
     UploadRequest::export_all_to(dest).unwrap();
     UploadResponse::export_all_to(dest).unwrap();

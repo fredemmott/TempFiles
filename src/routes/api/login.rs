@@ -82,8 +82,7 @@ pub struct FinishRequest {
 #[serde(crate = "rocket::serde")]
 pub struct FinishResponse {
     username: String,
-    session_id: Uuid,
-    session_secret: SessionSecret,
+    session: SessionSecret,
 }
 
 #[post("/api/login/finish", data = "<payload>")]
@@ -132,12 +131,12 @@ pub async fn finish(
         return Err(ApiError::NotFoundError());
     }
 
-    let session = sessions.create(data.user_id, data.passkey_id);
-
     Ok(Json(FinishResponse {
         username: data.username,
-        session_id: session.uuid().clone(),
-        session_secret: session.secret().clone(),
+        session: sessions
+            .create(data.user_id, data.passkey_id)
+            .secret()
+            .clone(),
     }))
 }
 
