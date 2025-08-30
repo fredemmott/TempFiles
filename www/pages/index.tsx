@@ -32,17 +32,12 @@ function E2EEWarning(): ReactNode {
   </div>
 }
 
-async function fetch_files_list(setFiles: (files: Array<APIFile>) => void) {
-  const response = await ListFiles.exec();
-  setFiles(response.files);
-}
-
 interface FileListEntryProps {
   file: APIFile,
   hkdf_keys: HKDFKeys,
 }
 
-async function download_file(api_file: APIFile, key: CryptoKey, filename: string) {
+async function downloadFile(api_file: APIFile, key: CryptoKey, filename: string) {
   const encrypted = await DownloadFile.exec({uuid: api_file.uuid});
   const decrypted = await decrypt(key, api_file.data_iv, encrypted);
   const url = URL.createObjectURL(new Blob([decrypted]));
@@ -98,11 +93,8 @@ function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
       }
       let decrypted_filename = await decrypt(file_key, file.filename_iv, file.encrypted_filename);
       setDecryptedFilename(new TextDecoder().decode(decrypted_filename));
-      setState("loaded");
     };
-    load();
-    return () => {
-    };
+    load().then(() => setState("loaded"));
   }, []);
 
   switch (state) {
@@ -118,7 +110,7 @@ function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
         <a href="" onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          download_file(
+          downloadFile(
             file,
             key!,
             decryptedFilename!,
@@ -127,19 +119,12 @@ function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
   }
 }
 
-function FilesList(): ReactNode {
-  const [files, setFiles] = useState<Array<APIFile>>([]);
-  const [hkdfKeys, setHKDFKeys] = useState<HKDFKeys | null>(null);
-  useEffect(() => {
-    let load_and_set_keys = async () => {
-      setHKDFKeys(await getHKDFKeys());
-    };
-    fetch_files_list(setFiles);
-    load_and_set_keys();
-    return () => {
-    };
-  }, []);
+interface FilesListProps {
+  files: APIFile[],
+  hkdfKeys: HKDFKeys | null,
+}
 
+function FilesList({files, hkdfKeys}: FilesListProps): ReactNode {
   if (files.length === 0 || hkdfKeys === null) {
     return <div>No usable files are available for download.</div>
   }
@@ -225,7 +210,7 @@ async function encrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data: Uint8A
   ));
 }
 
-async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null) {
+async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null): Promise<APIFile> {
   if (hkdf_keys === null) {
     hkdf_keys = await getHKDFKeys();
   }
@@ -273,30 +258,31 @@ async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null) 
     encrypted_filename,
     encrypted_data,
   }
-  const response = await UploadFile.exec(request);
-
-  debugger;
+  const response: UploadFile.Response = await UploadFile.exec(request);
+  return response.file;
 }
 
 async function handleFiles(files: FileList) {
   const hkdf_keys = await getHKDFKeys();
-  for (const file of files) {
-    encryptSingleFile(file, hkdf_keys);
-  }
+  return await Promise.all(Array.from(files).map((file) => encryptSingleFile(file, hkdf_keys)));
 }
 
-function handleDrop(e: React.DragEvent<HTMLDivElement>): void {
+async function uploadDroppedFiles(e: React.DragEvent<HTMLDivElement>): Promise<APIFile[]> {
   e.preventDefault();
   e.stopPropagation();
 
   const files = e.dataTransfer.files;
   if (files.length === 0) {
-    return;
+    return [];
   }
-  handleFiles(files);
+  return await handleFiles(files);
 }
 
-function FilePicker(): ReactNode {
+interface FilePickerProps {
+  onUpload: (files: APIFile[]) => void,
+}
+
+function FilePicker({onUpload}: FilePickerProps): ReactNode {
   const input = <input type="file" hidden/>;
 
   const preventDefault = (e: any) => {
@@ -308,7 +294,10 @@ function FilePicker(): ReactNode {
     onDragEnter={preventDefault}
     onDragOver={preventDefault}
     onDragLeave={preventDefault}
-    onDrop={handleDrop}
+    onDrop={async (e) => {
+      const files = await uploadDroppedFiles(e);
+      onUpload(files);
+    }}
     style={{
       border: "1px solid #ccc",
       padding: "1em",
@@ -324,10 +313,18 @@ export default function IndexPage(): ReactNode {
     return <Navigate to="/login"/>;
   }
 
+  const [files, setFiles] = useState<APIFile[]>([]);
+  const [hkdfKeys, setHKDFKeys] = useState<HKDFKeys | null>(null);
+
+  useEffect(() => {
+    getHKDFKeys().then(setHKDFKeys);
+    ListFiles.exec().then((response) => setFiles(response.files));
+  }, []);
+
   return <>
     <h1>{CONFIG.title}</h1>
     <E2EEWarning/>
-    <FilesList/>
-    <FilePicker/>
+    <FilesList files={files} hkdfKeys={hkdfKeys}/>
+    <FilePicker onUpload={(newFiles) => setFiles([...files, ...newFiles])}/>
   </>;
 }

@@ -1,6 +1,7 @@
 import {UploadRequest} from "../../gen/api/files/UploadRequest";
 import {UploadResponse} from "../../gen/api/files/UploadResponse";
 import * as Session from "../../Session";
+import base64_decode from "../../base64_decode";
 import base64_encode from "../../base64_encode";
 
 export type {UploadRequest as Request, UploadResponse as Response}
@@ -29,5 +30,15 @@ export async function exec(request: UploadRequest): Promise<UploadResponse> {
   if (!response.ok) {
     throw response;
   }
-  return await response.json();
+  const body = await response.json();
+  return {
+    ...body,
+    file: {
+      ...body.file,
+      salt: base64_decode(body.file.salt),
+      data_iv: base64_decode(body.file.data_iv),
+      filename_iv: base64_decode(body.file.filename_iv),
+      encrypted_filename: base64_decode(body.file.encrypted_filename),
+    },
+  };
 }

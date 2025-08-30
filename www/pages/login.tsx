@@ -2,7 +2,7 @@ import React, {useState} from "react";
 import * as StartLogin from "../api/login/start";
 import * as FinishLogin from "../api/login/finish";
 import * as Session from "../Session";
-import decode_urlsafe_base64 from "../decode_urlsafe_base64";
+import base64_decode from "../base64_decode";
 // Deprecated due to native browser support, but as of 2025-08-28
 // Safari 18.6 is the latest stable Safari on MacOS, and hard-crashes
 // the tab in credential.toJSON() or JSON.stringify()
@@ -62,7 +62,7 @@ class NoCredentialsError extends Error {
 
 async function get_credential(server_data: StartLogin.Response): Promise<PublicKeyCredential> {
   let challenge: any = WebauthnJSON.parseRequestOptionsFromJSON(server_data.challenge as CredentialRequestOptionsJSON);
-  challenge.publicKey.extensions.prf = {eval: {first: decode_urlsafe_base64(server_data.prf_seed)}};
+  challenge.publicKey.extensions.prf = {eval: {first: base64_decode(server_data.prf_seed)}};
   delete challenge.mediation;
   let credential = await WebauthnJSON.get(challenge as CredentialRequestOptions);
   if (!credential) {

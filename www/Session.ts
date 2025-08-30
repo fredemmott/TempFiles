@@ -1,4 +1,4 @@
-import decode_urlsafe_base64 from "./decode_urlsafe_base64";
+import base64_decode from "./base64_decode";
 
 export interface InitData {
   session: string,
@@ -41,7 +41,7 @@ async function hkdf_key(seed: string | null): Promise<CryptoKey | null> {
   }
   return await crypto.subtle.importKey(
     "raw",
-    decode_urlsafe_base64(seed),
+    base64_decode(seed),
     "HKDF",
     false,
     ["deriveKey"]
