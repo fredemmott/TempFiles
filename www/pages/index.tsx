@@ -141,7 +141,7 @@ function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
       return <tr>
         {file.is_e2ee ? <td title="File uses E2EE">🔐</td> : <td title="File does not use E2EE">🚨</td>}
         <td>
-          <a href="" onClick={(e) => {
+          <a href="#" onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
             downloadFile(
