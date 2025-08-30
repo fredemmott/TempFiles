@@ -1,8 +1,8 @@
 import {UploadRequest} from "../../gen/api/files/UploadRequest";
 import {UploadResponse} from "../../gen/api/files/UploadResponse";
-import * as Session from "../../Session";
 import base64_decode from "../../base64_decode";
 import base64_encode from "../../base64_encode";
+import * as APICall from "../APICall";
 
 export type {UploadRequest as Request, UploadResponse as Response}
 
@@ -21,16 +21,11 @@ export async function exec(request: UploadRequest): Promise<UploadResponse> {
     form_request.set(key, base64_encode(value));
   }
 
-  const endpoint = "/api/files/upload";
-  const response = await fetch(endpoint, {
-    method: "POST",
-    body: form_request,
-    headers: {"Authorization": `Bearer ${Session.token()}`},
-  });
-  if (!response.ok) {
-    throw response;
-  }
-  const body = await response.json();
+  const body = await APICall.authenticated_json(
+    "/api/files/upload",
+    {
+      body: form_request,
+    });
   return {
     ...body,
     file: {
