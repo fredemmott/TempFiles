@@ -308,7 +308,15 @@ async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null):
 
 async function handleFiles(files: FileList) {
   const hkdf_keys = await getHKDFKeys();
-  return await Promise.all(Array.from(files).map((file) => encryptSingleFile(file, hkdf_keys)));
+  try {
+    return await Promise.all(Array.from(files).map((file) => encryptSingleFile(file, hkdf_keys)));
+  } catch (e) {
+    if (e instanceof Response) {
+      alert(`An error occurred uploading a file to the server: ${e.status} ${e.statusText}`);
+      window.location.reload();
+    }
+    throw e;
+  }
 }
 
 async function uploadDroppedFiles(e: React.DragEvent<HTMLDivElement>): Promise<APIFile[]> {
