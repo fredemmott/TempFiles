@@ -1,9 +1,9 @@
-import {ApiRegisterStartRequest} from "../../gen/ApiRegisterStartRequest"
-import {ApiRegisterStartResponse} from "../../gen/ApiRegisterStartResponse"
+import {StartRequest} from "../../gen/api/register/StartRequest"
+import {StartResponse} from "../../gen/api/register/StartResponse"
 
-export type {ApiRegisterStartRequest as Request, ApiRegisterStartResponse as Response}
+export type {StartRequest as Request, StartResponse as Response}
 
-export async function exec(request: ApiRegisterStartRequest): Promise<ApiRegisterStartResponse> {
+export async function exec(request: StartRequest): Promise<StartResponse> {
   const endpoint = "/api/register/start";
   const response = await fetch(endpoint, {method: "POST", body: JSON.stringify(request)});
   if (!response.ok) {
