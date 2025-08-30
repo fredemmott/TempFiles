@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import * as StartLogin from "../api/login/start";
 import * as FinishLogin from "../api/login/finish";
 import * as Session from "../Session";
@@ -8,7 +8,7 @@ import base64_decode from "../base64_decode";
 // the tab in credential.toJSON() or JSON.stringify()
 import * as WebauthnJSON from "@github/webauthn-json/browser-ponyfill"
 import {CredentialRequestOptionsJSON} from "@github/webauthn-json/browser-ponyfill";
-import {NavigateFunction, useNavigate} from "react-router";
+import {Navigate, useNavigate, useSearchParams} from "react-router";
 
 namespace States {
   export interface Initial {
@@ -71,14 +71,19 @@ async function get_credential(server_data: StartLogin.Response): Promise<PublicK
   return credential;
 }
 
-async function login(setState: (state: States.Any) => void, navigate: NavigateFunction): Promise<void> {
+async function login(setState: (state: States.Any) => void): Promise<void> {
+  const setAndThrow = (state: States.Any): never => {
+    setState(state);
+    throw state;
+  };
+
   setState({state: "requested-challenge"});
   let challenge = null;
   try {
     challenge = await StartLogin.exec();
   } catch (ex) {
     if (ex instanceof Response) {
-      setState({state: "server-error", response: ex});
+      setAndThrow({state: "server-error", response: ex});
       return;
     }
     throw ex;
@@ -89,20 +94,17 @@ async function login(setState: (state: States.Any) => void, navigate: NavigateFu
     credential = await get_credential(challenge);
   } catch (untyped_ex) {
     if (untyped_ex instanceof NoCredentialsError) {
-      setState({state: "no-credentials"});
+      setAndThrow({state: "no-credentials"});
       return;
     }
 
     const e = untyped_ex as DOMException;
     switch (e.name) {
-      case "AbortError":
-        setState({state: "local-error", message: "Cancelled by user"});
-        return;
       case "NotAllowedError":
-        setState({state: "local-error", message: `Permission denied by browser: "${e.message}"`});
+        setAndThrow({state: "local-error", message: `Permission denied by browser: "${e.message}"`});
         return;
       default:
-        setState({state: "local-error", message: `Unknown error: ${e.name}: "${e.message}"`});
+        setAndThrow({state: "local-error", message: `Unknown error: ${e.name}: "${e.message}"`});
         return;
     }
   }
@@ -115,7 +117,7 @@ async function login(setState: (state: States.Any) => void, navigate: NavigateFu
     });
   } catch (ex) {
     if (ex instanceof Response) {
-      setState({state: "server-error", response: ex});
+      setAndThrow({state: "server-error", response: ex});
       return;
     }
     throw ex;
@@ -129,18 +131,33 @@ async function login(setState: (state: States.Any) => void, navigate: NavigateFu
   });
 
   setState({state: "complete"});
-  navigate("/");
 }
 
 export default function LoginPage() {
   const [state, setState] = useState<States.Any>({state: "initial"});
   const navigate = useNavigate();
+  const [query, setQuery] = useSearchParams();
+
+  useEffect(
+    () => {
+      const immediate = query.get("requireClick") === null;
+      setQuery({});
+      if (immediate) {
+        login(setState).catch(() => setState({state: "initial"}));
+      }
+    }, []
+  );
 
   switch (state.state) {
     case "initial":
-      return <button onClick={() => login(setState, navigate)}>Login</button>;
+      return <button onClick={() => {
+        login(setState).then(() => navigate("/"));
+      }}>Login</button>;
     case "requested-challenge":
       return <div>Waiting for server...</div>;
+    case "complete":
+      return <Navigate to={"/"}/>;
+    case "local-error":
     default:
       return <>
         <div>State:</div>

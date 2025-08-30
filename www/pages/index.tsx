@@ -5,7 +5,7 @@ import * as UploadFile from '../api/files/upload'
 import * as DownloadFile from '../api/files/download'
 import * as DeleteAllFiles from '../api/files/delete_all'
 import {File as APIFile} from '../gen/api/files/File'
-import {Navigate} from "react-router";
+import {Navigate, useNavigate} from "react-router";
 import base64_encode from "../base64_encode";
 
 const DEBUG_CRYPTO_SECRETS = false;
@@ -397,9 +397,9 @@ export default function IndexPage(): ReactNode {
   if (!Session.is_logged_in()) {
     return <Navigate to="/login"/>;
   }
-
   const [files, setFiles] = useState<APIFile[]>([]);
   const [hkdfKeys, setHKDFKeys] = useState<HKDFKeys | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     getHKDFKeys().then(setHKDFKeys);
@@ -430,7 +430,7 @@ export default function IndexPage(): ReactNode {
           e.preventDefault();
           e.stopPropagation();
           Session.clear();
-          window.location.reload();
+          navigate("/login?requireClick");
         }}>Logout</a>
       </div>
     </div>
