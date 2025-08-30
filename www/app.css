@@ -30,3 +30,9 @@ body {
 .file-picker-text {
   opacity: 0.3;
 }
+
+.header {
+  display: flex;
+  flex-direction: row;
+  gap: 1em;
+}

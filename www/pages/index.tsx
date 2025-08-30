@@ -3,6 +3,7 @@ import * as Session from '../Session'
 import * as ListFiles from '../api/files/list'
 import * as UploadFile from '../api/files/upload'
 import * as DownloadFile from '../api/files/download'
+import * as DeleteAllFiles from '../api/files/delete_all'
 import {File as APIFile} from '../gen/api/files/File'
 import {Navigate} from "react-router";
 import {CONFIG} from "../gen/site-config"
@@ -167,13 +168,15 @@ function FilesList({files, hkdfKeys}: FilesListProps): ReactNode {
   }
   files = files.toSorted((a, b) => Number(b.created_at - a.created_at));
 
-  return <table>
-    <tbody>
-    {files.map((file) =>
-      <FilesListEntry key={base64_encode(file.salt)} file={file} hkdf_keys={hkdfKeys}/>
-    )}
-    </tbody>
-  </table>;
+  return <div className={"files-list"}>
+    <table>
+      <tbody>
+      {files.map((file) =>
+        <FilesListEntry key={base64_encode(file.salt)} file={file} hkdf_keys={hkdfKeys}/>
+      )}
+      </tbody>
+    </table>
+  </div>;
 }
 
 interface HKDFKeys {
@@ -396,7 +399,21 @@ export default function IndexPage(): ReactNode {
 
   return <>
     <h1>{CONFIG.title}</h1>
-    <E2EEWarning/>
+    <div className={"header"}>
+      <E2EEWarning/>
+      <a href="" onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!window.confirm("Are you sure you want to delete all files?")) {
+          return;
+        }
+
+        DeleteAllFiles.exec().then(() => {
+          setFiles([]);
+        });
+      }}>🗑️ Delete all files</a>
+    </div>
     <FilesList files={files} hkdfKeys={hkdfKeys}/>
     <FilePicker onUpload={(newFiles) =>
       setFiles([...files, ...newFiles])

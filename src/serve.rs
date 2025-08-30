@@ -57,6 +57,7 @@ async fn rocket_main() -> Result<(), rocket::Error> {
                 root,
                 login,
                 register,
+                api::files::delete_all,
                 api::files::download,
                 api::files::list,
                 api::files::upload,

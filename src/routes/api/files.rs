@@ -5,6 +5,7 @@ use rocket::form::Form;
 use rocket::fs::{NamedFile, TempFile};
 use rocket::serde::json::Json;
 use rocket_db_pools::Connection;
+use rocket_db_pools::sqlx::prelude::*;
 use rocket_db_pools::sqlx::query;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -186,6 +187,35 @@ pub async fn download(
 
     let path = uploaded_file_path(&payload.uuid)?;
     Ok(NamedFile::open(path).await?)
+}
+
+#[post("/api/files/delete_all")]
+pub async fn delete_all(mut db: Connection<AppDb>, session: Session) -> Result<(), ApiError> {
+    let mut tx = db.begin().await?;
+    let user_id = session.user_id();
+    query!("UPDATE files SET salt = NULL WHERE user_id = ?1", user_id)
+        .execute(&mut *tx)
+        .await?;
+    let rows = query!(
+        r#"SELECT uuid AS "uuid: Uuid" FROM files WHERE user_id = ?1"#,
+        user_id
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+    tx.commit().await?;
+
+    for row in rows {
+        std::fs::remove_file(uploaded_file_path(&row.uuid)?)?
+    }
+
+    query!(
+        "DELETE FROM files WHERE user_id = ?1 AND salt IS NULL",
+        user_id
+    )
+    .execute(&mut **db)
+    .await?;
+
+    Ok(())
 }
 
 pub fn generate_typescript(dest: &str) {
