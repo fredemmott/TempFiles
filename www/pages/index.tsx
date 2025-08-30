@@ -6,7 +6,6 @@ import * as DownloadFile from '../api/files/download'
 import * as DeleteAllFiles from '../api/files/delete_all'
 import {File as APIFile} from '../gen/api/files/File'
 import {Navigate} from "react-router";
-import {CONFIG} from "../gen/site-config"
 import base64_encode from "../base64_encode";
 
 const DEBUG_CRYPTO_SECRETS = false;
@@ -164,12 +163,13 @@ interface FilesListProps {
 
 function FilesList({files, hkdfKeys}: FilesListProps): ReactNode {
   if (files.length === 0 || hkdfKeys === null) {
-    return <div>No usable files are available for download.</div>
+    return <div className={"files-list"}>No usable files are available for download.</div>
   }
   files = files.toSorted((a, b) => Number(b.created_at - a.created_at));
 
   return <div className={"files-list"}>
-    <table>
+    <h2>Available Files</h2>
+    <table className={"files-list-table"}>
       <tbody>
       {files.map((file) =>
         <FilesListEntry key={base64_encode(file.salt)} file={file} hkdf_keys={hkdfKeys}/>
@@ -302,6 +302,7 @@ async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null):
     encrypted_filename,
     encrypted_data,
   }
+
   const response: UploadFile.Response = await UploadFile.exec(request);
   return response.file;
 }
@@ -405,26 +406,34 @@ export default function IndexPage(): ReactNode {
     ListFiles.exec().then((response) => setFiles(response.files));
   }, []);
 
-  return <>
-    <h1>{CONFIG.title}</h1>
+  return <div className={"index-page"}>
     <div className={"header"}>
       <E2EEWarning/>
-      <a href="" onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
+      <div>
+        {"🗑️ "}
+        <a href="" onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
 
-        if (!window.confirm("Are you sure you want to delete all files?")) {
-          return;
-        }
+          if (!window.confirm("Are you sure you want to delete all files?")) {
+            return;
+          }
 
-        DeleteAllFiles.exec().then(() => {
-          setFiles([]);
-        });
-      }}>🗑️ Delete all files</a>
+          DeleteAllFiles.exec().then(() => {
+            setFiles([]);
+          });
+        }}>Delete all files</a>
+      </div>
     </div>
-    <FilesList files={files} hkdfKeys={hkdfKeys}/>
     <FilePicker onUpload={(newFiles) =>
       setFiles([...files, ...newFiles])
     }/>
-  </>;
+    <FilesList files={files} hkdfKeys={hkdfKeys}/>
+    <div className={"footer"}>
+      Powered by {' '}
+      <a href="https://github.com/fredemmott/TempFiles">
+        TempFiles
+      </a>
+    </div>
+  </div>;
 }

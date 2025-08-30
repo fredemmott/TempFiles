@@ -2,6 +2,12 @@ body {
   font-family: sans-serif;
 }
 
+.index-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
 .file-picker {
   border: 1px solid black;
   border-radius: 0.5em;
@@ -35,4 +41,33 @@ body {
   display: flex;
   flex-direction: row;
   gap: 1em;
+}
+
+.files-list-table {
+  border: 1px solid #ccc;
+  width: 100%;
+
+  td {
+    padding: 0.2em;
+    white-space: nowrap;
+  }
+
+  td:nth-child(2) {
+    width: 100%;
+  }
+
+  tr:nth-child(odd) {
+    background-color: #fff;
+  }
+  tr:nth-child(even) {
+    background-color: #eef;
+  }
+}
+.footer {
+  font-size: 80%;
+  font-style: italic;
+  color: #ccc;
+  a {
+    color: #ccc;
+  }
 }
