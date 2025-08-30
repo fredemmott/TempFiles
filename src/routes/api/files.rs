@@ -3,11 +3,12 @@ use crate::app_db::AppDb;
 use crate::session::{SessionSecret, SessionStore};
 use rocket::State;
 use rocket::form::Form;
-use rocket::fs::TempFile;
+use rocket::fs::{NamedFile, TempFile};
 use rocket::serde::json::Json;
 use rocket_db_pools::Connection;
 use rocket_db_pools::sqlx::query;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use ts_rs::TS;
 use uuid::Uuid;
 
@@ -15,12 +16,17 @@ use uuid::Uuid;
 #[ts(export_to = "api/files/File.ts")]
 pub struct File {
     pub uuid: Uuid,
-    pub is_e2ee: bool,
-    pub salt: String,
-    pub filename_iv: String,
-    pub data_iv: String,
-    pub encrypted_filename: String,
     pub created_at: i64,
+
+    pub is_e2ee: bool,
+    #[ts(type = "Uint8Array<ArrayBuffer>")]
+    pub salt: String,
+    #[ts(type = "Uint8Array<ArrayBuffer>")]
+    pub filename_iv: String,
+    #[ts(type = "Uint8Array<ArrayBuffer>")]
+    pub data_iv: String,
+    #[ts(type = "Uint8Array<ArrayBuffer>")]
+    pub encrypted_filename: String,
 }
 
 #[derive(Deserialize, TS)]
@@ -84,11 +90,16 @@ pub async fn list(
 #[ts(export_to = "api/files/UploadRequest.ts")]
 pub struct UploadRequest<'r> {
     pub is_e2ee: bool,
+    #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub salt: String,
+    #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub filename_iv: String,
+    #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub data_iv: String,
+    #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub encrypted_filename: String,
-    #[ts(type = "Blob")]
+
+    #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub encrypted_data: TempFile<'r>,
     pub session_id: Uuid,
     pub session_secret: SessionSecret,
@@ -101,6 +112,18 @@ pub struct UploadResponse {
     pub file: File,
 }
 
+fn uploaded_file_path(uuid: &Uuid) -> Result<PathBuf, std::io::Error> {
+    let uuid_str = uuid.to_string();
+    let path = PathBuf::from(format!(
+        "uploads/{}/{}/{}",
+        &uuid_str[0..2],
+        &uuid_str[2..4],
+        uuid_str
+    ));
+    std::fs::create_dir_all(path.parent().unwrap())?;
+    Ok(path)
+}
+
 #[post("/api/files/upload", data = "<payload>")]
 pub async fn upload(
     mut db: Connection<AppDb>,
@@ -111,10 +134,7 @@ pub async fn upload(
         .get(&payload.session_id, &payload.session_secret)
         .ok_or(ApiError::InvalidSessionError())?;
     let uuid = Uuid::new_v4();
-    let uuid_str = uuid.to_string();
-    let directory = format!("uploads/{}/{}", &uuid_str[0..2], &uuid_str[2..4]);
-    std::fs::create_dir_all(&directory)?;
-    let path = format!("{}/{}", directory, uuid_str);
+    let path = uploaded_file_path(&uuid)?;
 
     payload.encrypted_data.persist_to(path).await?;
     let user_id = session.user_id();
@@ -155,7 +175,44 @@ pub async fn upload(
     }))
 }
 
+#[derive(Deserialize, TS)]
+#[ts(export_to = "api/files/DownloadRequest.ts")]
+pub struct DownloadRequest {
+    pub uuid: Uuid,
+    pub session_id: Uuid,
+    pub session_secret: SessionSecret,
+}
+
+#[post("/api/files/download", data = "<payload>")]
+pub async fn download(
+    mut db: Connection<AppDb>,
+    payload: Json<DownloadRequest>,
+    sessions: &State<SessionStore>,
+) -> Result<NamedFile, ApiError> {
+    let session = sessions
+        .get(&payload.session_id, &payload.session_secret)
+        .ok_or(ApiError::InvalidSessionError())?;
+    let user_id = session.user_id();
+    // Deleting the salt is effectively deleting it, as we can't decrypt.
+    //
+    // We might keep the row if we haven't cleaned up the filesystem yet
+    let row = query!(
+        "SELECT salt FROM files WHERE uuid = ?1 AND user_id = ?2",
+        payload.uuid,
+        user_id,
+    )
+    .fetch_one(&mut **db)
+    .await?;
+    if row.salt.is_none() {
+        return Err(ApiError::NotFoundError());
+    }
+
+    let path = uploaded_file_path(&payload.uuid)?;
+    Ok(NamedFile::open(path).await?)
+}
+
 pub fn generate_typescript(dest: &str) {
+    DownloadRequest::export_all_to(dest).unwrap();
     File::export_all_to(dest).unwrap();
     ListRequest::export_all_to(dest).unwrap();
     ListResponse::export_all_to(dest).unwrap();

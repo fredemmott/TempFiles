@@ -2,9 +2,13 @@ import React, {ReactNode, useEffect, useState} from 'react'
 import * as Session from '../Session'
 import * as ListFiles from '../api/files/list'
 import * as UploadFile from '../api/files/upload'
+import * as DownloadFile from '../api/files/download'
 import {File as APIFile} from '../gen/api/files/File'
 import {Navigate} from "react-router";
 import {CONFIG} from "../gen/site-config"
+
+const DEBUG_CRYPTO_SECRETS = true;
+const EXTRACTABLE_CRYPTO_KEYS = DEBUG_CRYPTO_SECRETS;
 
 function E2EEWarning(): ReactNode {
   if (Session.supports_e2ee()) {
@@ -28,7 +32,7 @@ function E2EEWarning(): ReactNode {
 }
 
 async function fetch_files_list(setFiles: (files: Array<APIFile>) => void) {
-  let response = await ListFiles.exec({
+  const response = await ListFiles.exec({
     ...Session.api_credentials(),
   });
   setFiles(response.files);
@@ -37,6 +41,36 @@ async function fetch_files_list(setFiles: (files: Array<APIFile>) => void) {
 interface FileListEntryProps {
   file: APIFile,
   hkdf_keys: HKDFKeys,
+}
+
+async function download_file(api_file: APIFile, key: CryptoKey, filename: string) {
+  const encrypted = await DownloadFile.exec({uuid: api_file.uuid, ...Session.api_credentials()});
+  const decrypted = await decrypt(key, api_file.data_iv, encrypted);
+  const url = URL.createObjectURL(new Blob([decrypted]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function decrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+  if (DEBUG_CRYPTO_SECRETS) {
+    const exported_key = await crypto.subtle.exportKey('raw', key);
+    console.log("decrypting", {
+      key: new Uint8Array(exported_key).toBase64(),
+      iv: iv.toBase64(),
+      data
+    });
+  }
+  return new Uint8Array(await crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv,
+    },
+    key,
+    data,
+  ));
 }
 
 function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
@@ -64,14 +98,7 @@ function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
         setState("no_key");
         return;
       }
-      let decrypted_filename = await crypto.subtle.decrypt(
-        {
-          name: "AES-GCM",
-          iv: a_to_buffersource(file.filename_iv),
-        },
-        file_key,
-        a_to_buffersource(file.encrypted_filename),
-      );
+      let decrypted_filename = await decrypt(file_key, file.filename_iv, file.encrypted_filename);
       setDecryptedFilename(new TextDecoder().decode(decrypted_filename));
       setState("loaded");
     };
@@ -90,7 +117,15 @@ function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
     case "loaded":
       return <div>
         {file.is_e2ee ? <span title="File uses E2EE">🔐</span> : <span title="File does not use E2EE">🚨</span>}
-        {decryptedFilename} at {file.created_at}</div>
+        <a href="" onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          download_file(
+            file,
+            key!,
+            decryptedFilename!,
+          );
+        }}>{decryptedFilename}</a> at {file.created_at}</div>
   }
 }
 
@@ -113,8 +148,6 @@ function FilesList(): ReactNode {
   return <div>{files.map((file, index) =>
     <FilesListEntry key={index} file={file} hkdf_keys={hkdfKeys}/>
   )}</div>
-
-  return <div>TODO: list files (got {files.length})</div>;
 }
 
 interface HKDFKeys {
@@ -134,10 +167,10 @@ async function getHKDFKeys(): Promise<HKDFKeys> {
 }
 
 interface CryptoParams {
-  salt: Uint8Array,
+  salt: Uint8Array<ArrayBuffer>,
   key: CryptoKey,
-  filename_iv: Uint8Array,
-  data_iv: Uint8Array,
+  filename_iv: Uint8Array<ArrayBuffer>,
+  data_iv: Uint8Array<ArrayBuffer>,
 }
 
 async function genCryptoKeyForFile(hkdf_key: CryptoKey, salt: Uint8Array): Promise<CryptoKey> {
@@ -148,13 +181,20 @@ async function genCryptoKeyForFile(hkdf_key: CryptoKey, salt: Uint8Array): Promi
     salt: a_to_buffersource(salt),
     info: encoder.encode("user-file"),
   };
-  return await crypto.subtle.deriveKey(
+  const key = await crypto.subtle.deriveKey(
     params,
     hkdf_key,
     {name: "AES-GCM", length: 128},
-    false,
+    EXTRACTABLE_CRYPTO_KEYS,
     ["encrypt", "decrypt"],
   );
+  if (DEBUG_CRYPTO_SECRETS) {
+    console.log("Generated per-file key", {
+      salt: salt.toBase64(),
+      key: new Uint8Array(await crypto.subtle.exportKey('raw', key)).toBase64(),
+    });
+  }
+  return key;
 }
 
 async function genCryptoParamsForUpload(hkdf_key: CryptoKey): Promise<CryptoParams> {
@@ -197,6 +237,22 @@ interface HKDFKey {
   key: CryptoKey,
 }
 
+async function encrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+  if (DEBUG_CRYPTO_SECRETS) {
+    const exported_key = await crypto.subtle.exportKey('raw', key);
+    console.log("encrypting", {key: new Uint8Array(exported_key).toBase64(), iv: iv.toBase64()});
+  }
+
+  return new Uint8Array(await crypto.subtle.encrypt(
+    {
+      name: "AES-GCM",
+      iv,
+    },
+    key,
+    data,
+  ));
+}
+
 async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null) {
   if (hkdf_keys === null) {
     hkdf_keys = await getHKDFKeys();
@@ -209,39 +265,41 @@ async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null) 
   }
 
   const crypto_params = await genCryptoParamsForUpload(hkdf_key);
-  const encrypted_filename = a_to_binary_string(await crypto.subtle.encrypt(
-    {
-      name: "AES-GCM",
-      iv: a_to_buffersource(crypto_params.filename_iv),
-    },
+  if (DEBUG_CRYPTO_SECRETS) {
+    console.log({
+      filename_iv: crypto_params.filename_iv.toBase64(),
+      data_iv: crypto_params.data_iv.toBase64(),
+    });
+  }
+  const encrypted_filename = await encrypt(
     crypto_params.key,
+    crypto_params.filename_iv,
     new TextEncoder().encode(file.name),
-  ));
-  const unencrypted_data: ArrayBuffer = await new Promise((resolve, reject) => {
+  );
+  const unencrypted_data = new Uint8Array(await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      resolve(reader.result as ArrayBuffer);
+      resolve(new Uint8Array(reader.result as ArrayBuffer));
     };
     reader.onerror = reject;
     reader.readAsArrayBuffer(file);
-  });
+  }));
 
-  const encrypted_data = a_to_blob(await crypto.subtle.encrypt(
-    {
-      name: "AES-GCM",
-      iv: a_to_buffersource(crypto_params.data_iv),
-    },
+  const encrypted_data = await encrypt(
     crypto_params.key,
+    crypto_params.data_iv,
     unencrypted_data,
-  ))
+  );
+
+  console.log("file data for upload", {encrypted_data});
 
   const request: UploadFile.Request = {
     is_e2ee,
-    salt: a_to_binary_string(crypto_params.salt),
-    filename_iv: a_to_binary_string(crypto_params.filename_iv),
-    data_iv: a_to_binary_string(crypto_params.data_iv),
-    encrypted_filename: encrypted_filename,
-    encrypted_data: encrypted_data,
+    salt: crypto_params.salt,
+    filename_iv: crypto_params.filename_iv,
+    data_iv: crypto_params.data_iv,
+    encrypted_filename,
+    encrypted_data,
     ...Session.api_credentials()
   }
   const response = await UploadFile.exec(request);
