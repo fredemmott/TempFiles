@@ -1,4 +1,4 @@
-import React, {ReactNode, useEffect, useState} from 'react'
+import React, {ReactNode, useEffect, useRef, useState} from 'react'
 import * as Session from '../Session'
 import * as ListFiles from '../api/files/list'
 import * as UploadFile from '../api/files/upload'
@@ -167,9 +167,13 @@ function FilesList({files, hkdfKeys}: FilesListProps): ReactNode {
   }
   files = files.toSorted((a, b) => Number(b.created_at - a.created_at));
 
-  return <table>{files.map((file, index) =>
-    <FilesListEntry key={index} file={file} hkdf_keys={hkdfKeys}/>
-  )}</table>
+  return <table>
+    <tbody>
+    {files.map((file, index) =>
+      <FilesListEntry key={base64_encode(file.salt)} file={file} hkdf_keys={hkdfKeys}/>
+    )}
+    </tbody>
+  </table>;
 }
 
 interface HKDFKeys {
@@ -322,28 +326,67 @@ interface FilePickerProps {
 }
 
 function FilePicker({onUpload}: FilePickerProps): ReactNode {
-  const input = <input type="file" hidden/>;
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const preventDefault = (e: any) => {
     e.preventDefault();
     e.stopPropagation();
   };
 
+  const inputRef = useRef<HTMLInputElement>(null);
+  const input =
+    <input
+      ref={inputRef}
+      type="file"
+      hidden
+      onChange={(e) => {
+        preventDefault(e);
+        const files = e.target.files;
+        if (files === null) {
+          return;
+        }
+        handleFiles(files)
+          .then(onUpload)
+          .catch((ex) => {
+            debugger;
+          })
+          .finally(() => {
+            debugger;
+          });
+      }}
+    />;
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
   return <div
-    onDragEnter={preventDefault}
+    ref={containerRef}
+    onDragEnter={(e) => {
+      preventDefault(e);
+      setIsDragOver(true);
+    }}
     onDragOver={preventDefault}
-    onDragLeave={preventDefault}
-    onDrop={async (e) => {
-      const files = await uploadDroppedFiles(e);
-      onUpload(files);
+    onDragLeave={(e) => {
+      preventDefault(e);
+      if (e.currentTarget == containerRef.current) {
+        setIsDragOver(false);
+      }
     }}
-    style={{
-      border: "1px solid #ccc",
-      padding: "1em",
+    onDrop={(e) => {
+      uploadDroppedFiles(e).then(onUpload);
+      setIsDragOver(false);
     }}
+    onClick={() => {
+      if (inputRef.current) {
+        inputRef.current.click();
+      }
+    }}
+    className={`file-picker ${isDragOver ? "drag-over" : ""}`}
   >
-    <p>Drag & Drop your files here</p>
-    {input}
+    <div className="file-picker-content" style={{pointerEvents: "none"}}>
+      <div className={"file-picker-icon"}>📂</div>
+      <div className={"file-picker-text"}>drop files or click to upload</div>
+      {input}
+    </div>
   </div>;
 }
 
@@ -364,6 +407,8 @@ export default function IndexPage(): ReactNode {
     <h1>{CONFIG.title}</h1>
     <E2EEWarning/>
     <FilesList files={files} hkdfKeys={hkdfKeys}/>
-    <FilePicker onUpload={(newFiles) => setFiles([...files, ...newFiles])}/>
+    <FilePicker onUpload={(newFiles) =>
+      setFiles([...files, ...newFiles])
+    }/>
   </>;
 }

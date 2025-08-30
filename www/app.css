@@ -1,0 +1,32 @@
+body {
+  font-family: sans-serif;
+}
+
+.file-picker {
+  border: 1px solid black;
+  border-radius: 0.5em;
+  padding: 1em;
+  cursor: pointer;
+  min-height: 5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background-color: #eee;
+}
+.file-picker.drag-over {
+  background-color: #cfc;
+  cursor: copy !important;
+}
+.file-picker-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.file-picker-icon {
+  font-size: 400%;
+}
+.file-picker-text {
+  opacity: 0.3;
+}

@@ -8,6 +8,7 @@ const LoginPage = lazy(() => import("./pages/login"));
 
 const root = document.getElementById("root")!
 
+import './app.css';
 
 ReactDOM.createRoot(root).render(
   <BrowserRouter>
