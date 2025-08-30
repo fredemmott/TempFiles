@@ -66,3 +66,7 @@ export function token(): string {
   }
   return token;
 }
+
+export function clear(): void {
+  sessionStorage.clear();
+}

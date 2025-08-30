@@ -411,7 +411,7 @@ export default function IndexPage(): ReactNode {
       <E2EEWarning/>
       <div>
         {"🗑️ "}
-        <a href="" onClick={(e) => {
+        <a href="#" onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
 
@@ -423,6 +423,15 @@ export default function IndexPage(): ReactNode {
             setFiles([]);
           });
         }}>Delete all files</a>
+      </div>
+      <div>
+        {"🔌 "}
+        <a href="#" onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          Session.clear();
+          window.location.reload();
+        }}>Logout</a>
       </div>
     </div>
     <FilePicker onUpload={(newFiles) =>
