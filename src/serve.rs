@@ -9,6 +9,7 @@ use crate::routes::api::register::PendingRegistrations;
 use crate::session::SessionStore;
 use base64::prelude::*;
 use rocket::State;
+use rocket::fs::FileServer;
 use rocket::response::content::RawHtml;
 use rocket_db_pools::Database;
 use webauthn_rs::prelude::*;
@@ -67,6 +68,7 @@ async fn rocket_main() -> Result<(), rocket::Error> {
                 api::login::finish,
             ],
         )
+        .mount("/assets", FileServer::from("www/dist/assets"))
         .ignite()
         .await?
         .launch()
