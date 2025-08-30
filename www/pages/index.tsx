@@ -6,6 +6,7 @@ import * as DownloadFile from '../api/files/download'
 import {File as APIFile} from '../gen/api/files/File'
 import {Navigate} from "react-router";
 import {CONFIG} from "../gen/site-config"
+import base64_encode from "../base64_encode";
 
 const DEBUG_CRYPTO_SECRETS = true;
 const EXTRACTABLE_CRYPTO_KEYS = DEBUG_CRYPTO_SECRETS;
@@ -56,8 +57,8 @@ async function decrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data: Uint8A
   if (DEBUG_CRYPTO_SECRETS) {
     const exported_key = await crypto.subtle.exportKey('raw', key);
     console.log("decrypting", {
-      key: new Uint8Array(exported_key).toBase64(),
-      iv: iv.toBase64(),
+      key: base64_encode(new Uint8Array(exported_key)),
+      iv: base64_encode(iv),
       data
     });
   }
@@ -79,17 +80,16 @@ function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
 
   useEffect(() => {
     const load = async () => {
-      let salt = a_to_uint8array(file.salt);
       let file_key = null;
       if (file.is_e2ee) {
         if (!hkdf_keys.e2ee_key) {
           setState("requires_e2ee");
           return;
         }
-        file_key = await genCryptoKeyForFile(hkdf_keys.e2ee_key, salt);
+        file_key = await genCryptoKeyForFile(hkdf_keys.e2ee_key, file.salt);
         setKey(file_key);
       } else {
-        file_key = await genCryptoKeyForFile(hkdf_keys.server_trust_key, salt);
+        file_key = await genCryptoKeyForFile(hkdf_keys.server_trust_key, file.salt);
         setKey(file_key);
       }
       if (file_key === null) {
@@ -171,12 +171,12 @@ interface CryptoParams {
   data_iv: Uint8Array<ArrayBuffer>,
 }
 
-async function genCryptoKeyForFile(hkdf_key: CryptoKey, salt: Uint8Array): Promise<CryptoKey> {
+async function genCryptoKeyForFile(hkdf_key: CryptoKey, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const params: HkdfParams = {
     name: "HKDF",
     hash: "SHA-256",
-    salt: a_to_buffersource(salt),
+    salt: salt,
     info: encoder.encode("user-file"),
   };
   const key = await crypto.subtle.deriveKey(
@@ -188,8 +188,8 @@ async function genCryptoKeyForFile(hkdf_key: CryptoKey, salt: Uint8Array): Promi
   );
   if (DEBUG_CRYPTO_SECRETS) {
     console.log("Generated per-file key", {
-      salt: salt.toBase64(),
-      key: new Uint8Array(await crypto.subtle.exportKey('raw', key)).toBase64(),
+      salt: base64_encode(salt),
+      key: base64_encode(new Uint8Array(await crypto.subtle.exportKey('raw', key))),
     });
   }
   return key;
@@ -206,39 +206,13 @@ async function genCryptoParamsForUpload(hkdf_key: CryptoKey): Promise<CryptoPara
   };
 }
 
-type BinaryData = ArrayBuffer | Uint8Array | string;
-
-function a_to_uint8array(data: BinaryData): Uint8Array<ArrayBuffer> {
-  if (typeof data === 'string') {
-    return Uint8Array.from(data, c => c.charCodeAt(0));
-  }
-  return new Uint8Array(data);
-}
-
-function a_to_binary_string(data: BinaryData): string {
-  return Array.from(
-    a_to_uint8array(data),
-    (byte) => String.fromCharCode(byte)
-  ).join('');
-}
-
-function a_to_blob(data: BinaryData): Blob {
-  return new Blob([a_to_binary_string(data)]);
-}
-
-function a_to_buffersource(data: BinaryData): BufferSource {
-  return a_to_uint8array(data).buffer;
-}
-
-interface HKDFKey {
-  kind: 'e2ee' | 'server-trust',
-  key: CryptoKey,
-}
-
 async function encrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
   if (DEBUG_CRYPTO_SECRETS) {
     const exported_key = await crypto.subtle.exportKey('raw', key);
-    console.log("encrypting", {key: new Uint8Array(exported_key).toBase64(), iv: iv.toBase64()});
+    console.log("encrypting", {
+      key: base64_encode(new Uint8Array(exported_key)),
+      iv: base64_encode(iv),
+    });
   }
 
   return new Uint8Array(await crypto.subtle.encrypt(
@@ -265,8 +239,8 @@ async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null) 
   const crypto_params = await genCryptoParamsForUpload(hkdf_key);
   if (DEBUG_CRYPTO_SECRETS) {
     console.log({
-      filename_iv: crypto_params.filename_iv.toBase64(),
-      data_iv: crypto_params.data_iv.toBase64(),
+      filename_iv: base64_encode(crypto_params.filename_iv),
+      data_iv: base64_encode(crypto_params.data_iv),
     });
   }
   const encrypted_filename = await encrypt(
