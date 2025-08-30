@@ -8,7 +8,7 @@ import {Navigate} from "react-router";
 import {CONFIG} from "../gen/site-config"
 import base64_encode from "../base64_encode";
 
-const DEBUG_CRYPTO_SECRETS = true;
+const DEBUG_CRYPTO_SECRETS = false;
 const EXTRACTABLE_CRYPTO_KEYS = DEBUG_CRYPTO_SECRETS;
 
 function E2EEWarning(): ReactNode {
@@ -290,8 +290,6 @@ async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null):
     crypto_params.data_iv,
     unencrypted_data,
   );
-
-  console.log("file data for upload", {encrypted_data});
 
   const request: UploadFile.Request = {
     is_e2ee,

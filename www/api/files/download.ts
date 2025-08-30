@@ -16,7 +16,5 @@ export async function exec(request: DownloadRequest): Promise<Uint8Array<ArrayBu
   if (!response.ok) {
     throw response;
   }
-  const bytes = await response.bytes();
-  console.log(bytes);
-  return bytes;
+  return await response.bytes();
 }
