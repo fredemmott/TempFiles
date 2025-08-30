@@ -148,20 +148,39 @@ export default function LoginPage() {
     }, []
   );
 
+  const LoginButton = () => <button onClick={() => {
+    login(setState).then(() => navigate("/"));
+  }} className={"login-button"}>
+    <div className={"login-button-icon"}>🔑</div>
+    <div className={"login-button-text"}>
+      Login with passkey
+    </div>
+  </button>;
+
   switch (state.state) {
     case "initial":
-      return <button onClick={() => {
-        login(setState).then(() => navigate("/"));
-      }}>Login</button>;
+      return <LoginButton/>;
+    case "prompting-user":
+      return <div>Follow your browser prompts.</div>;
     case "requested-challenge":
+    case "submitting-challenge-response":
       return <div>Waiting for server...</div>;
     case "complete":
       return <Navigate to={"/"}/>;
+    case "server-error":
+      return <div className={"login-error"}>
+        <p>Something went wrong communicating with the server.</p>
+        <LoginButton/>
+      </div>;
     case "local-error":
-    default:
-      return <>
-        <div>State:</div>
-        <pre>{JSON.stringify(state, null, 2)}</pre>
-      </>;
+      return <div className={"login-error"}>
+        <p>Something went wrong on this end: <code>{state.message}</code>.</p>
+        <LoginButton/>
+      </div>;
+    case "no-credentials":
+      return <div className={"login-error"}>
+        <p>Your browser does not have any passkeys saved for this site; you can try again.</p>
+        <LoginButton/>
+      </div>;
   }
 }
