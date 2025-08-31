@@ -31,6 +31,9 @@ sqlite3 db.sqlite < schema.sql
 
 Then, copy `Rocket.toml` to `Rocket.local.toml`, and edit it to match your environment.
 
+- you will need to add a `[release.webauthn.relying_party]` section, based on `[debug.webauthn.relying_party]`
+- you may also need to set `port` inside a `[release]` section
+
 Once the configuration file is ready, build and initialize the server:
 
 ```
