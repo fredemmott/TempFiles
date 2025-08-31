@@ -9,7 +9,7 @@ As of 2025-08-30, you will have the best results by using QR codes and your phon
 devices are supported, functionality varies by OS, browser, and device. Some browsers may crash on some platforms in
 some configurations - phone-based passkeys are currently the most reliable for the features that TempFiles uses.
 
-It is written in Rust and Typescript, using Rocket, React, and Vite. Encryption is using AES-GCM.
+It is written in Rust and TypeScript, using Rocket, React, and Vite. Encryption is using AES-GCM.
 
 ![screenshot.png](screenshot.png)
 
