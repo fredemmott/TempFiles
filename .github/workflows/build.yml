@@ -1,0 +1,24 @@
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '24'
+      - name: Create database
+        run: sqlite3 db.sqlite < schema.sql
+      - name: Build Rust
+        run: cargo build
+      - name: Export Rust -> TypeScript
+        run: cargo run gen-ts
+      - name: Install JS dependencies
+        working-directory: www
+        run: yarn install
+      - name: Check TypeScript
+        working-directory: www
+        run: yarn run tsc --noEmit
+      - name: Build TypeScript
+        working-directory: www
+        run: yarn run build
