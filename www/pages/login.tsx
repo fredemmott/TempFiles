@@ -66,7 +66,7 @@ namespace States {
 class NoCredentialsError extends Error {
 }
 
-async function get_credential(server_data: StartLogin.Response): Promise<PublicKeyCredential> {
+async function getWebAuthnCredential(server_data: StartLogin.Response): Promise<PublicKeyCredential> {
   let challenge: any = WebauthnJSON.parseRequestOptionsFromJSON(server_data.challenge as CredentialRequestOptionsJSON);
   challenge.publicKey.extensions.prf = {eval: {first: Base64.decode(server_data.prf_seed)}};
   delete challenge.mediation;
@@ -97,7 +97,7 @@ async function login(setState: (state: States.Any) => void): Promise<void> {
   setState({state: "prompting-user", server_data: challenge});
   let credential = null;
   try {
-    credential = await get_credential(challenge);
+    credential = await getWebAuthnCredential(challenge);
   } catch (untyped_ex) {
     if (untyped_ex instanceof NoCredentialsError) {
       setAndThrow({state: "no-credentials"});

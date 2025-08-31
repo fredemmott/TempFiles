@@ -11,7 +11,7 @@ import * as StartRegistration from "../api/register/start";
 import * as FinishRegistration from "../api/register/finish";
 import * as Base64 from "../Base64";
 
-async function create_credential(server_data: StartRegistration.Response) {
+async function createWebauthnCredential(server_data: StartRegistration.Response) {
   let challenge = server_data.challenge as any;
   challenge.publicKey.user.id = Base64.decode(challenge.publicKey.user.id);
   challenge.publicKey.challenge = Base64.decode(challenge.publicKey.challenge);
@@ -44,7 +44,7 @@ async function register(token: string, setState: (state: States.Any) => void): P
   setState({state: "prompting-user", server_data: response});
   let credential: Credential | null = null;
   try {
-    credential = await create_credential(response);
+    credential = await createWebauthnCredential(response);
   } catch (untyped_ex) {
     const e = untyped_ex as DOMException;
     switch (e.name) {
