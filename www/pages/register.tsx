@@ -6,7 +6,7 @@
 
 import React, {useRef} from "react";
 import {useState} from "react";
-import {Link, useSearchParams} from "react-router";
+import {Link} from "react-router";
 import * as StartRegistration from "../api/register/start";
 import * as FinishRegistration from "../api/register/finish";
 import * as Base64 from "../Base64";
