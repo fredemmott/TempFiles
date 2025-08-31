@@ -19,5 +19,5 @@ export async function exec(request: DownloadRequest): Promise<Uint8Array<ArrayBu
       }
     },
   );
-  return await response.bytes();
+  return await response.bytes() as Uint8Array<ArrayBuffer>;
 }

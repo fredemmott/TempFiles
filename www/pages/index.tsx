@@ -13,9 +13,9 @@ import * as DeleteAllFiles from '../api/files/delete_all'
 import {File as APIFile} from '../gen/api/files/File'
 import {Navigate, useNavigate} from "react-router";
 import base64_encode from "../base64_encode";
+import * as FileCrypto from "../FileCrypto"
 
-const DEBUG_CRYPTO_SECRETS = false;
-const EXTRACTABLE_CRYPTO_KEYS = DEBUG_CRYPTO_SECRETS;
+type HKDFKeys = FileCrypto.HKDFKeys;
 
 function E2EEWarning(): ReactNode {
   if (Session.supports_e2ee()) {
@@ -45,32 +45,13 @@ interface FileListEntryProps {
 
 async function downloadFile(api_file: APIFile, key: CryptoKey, filename: string) {
   const encrypted = await DownloadFile.exec({uuid: api_file.uuid});
-  const decrypted = await decrypt(key, api_file.data_iv, encrypted);
+  const decrypted = await FileCrypto.decrypt(key, api_file.data_iv, encrypted);
   const url = URL.createObjectURL(new Blob([decrypted]));
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
-}
-
-async function decrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
-  if (DEBUG_CRYPTO_SECRETS) {
-    const exported_key = await crypto.subtle.exportKey('raw', key);
-    console.log("decrypting", {
-      key: base64_encode(new Uint8Array(exported_key)),
-      iv: base64_encode(iv),
-      data
-    });
-  }
-  return new Uint8Array(await crypto.subtle.decrypt(
-    {
-      name: "AES-GCM",
-      iv,
-    },
-    key,
-    data,
-  ));
 }
 
 function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
@@ -87,17 +68,17 @@ function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
           setState("requires_e2ee");
           return;
         }
-        file_key = await genCryptoKeyForFile(hkdf_keys.e2ee_key, file.salt);
+        file_key = await FileCrypto.deriveKey(hkdf_keys.e2ee_key, file.salt);
         setKey(file_key);
       } else {
-        file_key = await genCryptoKeyForFile(hkdf_keys.server_trust_key, file.salt);
+        file_key = await FileCrypto.deriveKey(hkdf_keys.server_trust_key, file.salt);
         setKey(file_key);
       }
       if (file_key === null) {
         setState("no_key");
         return;
       }
-      let decrypted_filename = await decrypt(file_key, file.filename_iv, file.encrypted_filename);
+      let decrypted_filename = await FileCrypto.decrypt(file_key, file.filename_iv, file.encrypted_filename);
       setDecryptedFilename(new TextDecoder().decode(decrypted_filename));
     };
     load().then(() => setState("loaded"));
@@ -191,86 +172,10 @@ function FilesList({files, hkdfKeys}: FilesListProps): ReactNode {
   </div>;
 }
 
-interface HKDFKeys {
-  e2ee_key: CryptoKey | null,
-  server_trust_key: CryptoKey,
-}
-
-async function getHKDFKeys(): Promise<HKDFKeys> {
-  let [e2ee_key, server_trust_key] = [
-    await Session.e2ee_hkdf_key(),
-    await Session.server_trust_hkdf_key(),
-  ];
-  return {
-    e2ee_key,
-    server_trust_key,
-  };
-}
-
-interface CryptoParams {
-  salt: Uint8Array<ArrayBuffer>,
-  key: CryptoKey,
-  filename_iv: Uint8Array<ArrayBuffer>,
-  data_iv: Uint8Array<ArrayBuffer>,
-}
-
-async function genCryptoKeyForFile(hkdf_key: CryptoKey, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
-  const encoder = new TextEncoder();
-  const params: HkdfParams = {
-    name: "HKDF",
-    hash: "SHA-256",
-    salt: salt,
-    info: encoder.encode("user-file"),
-  };
-  const key = await crypto.subtle.deriveKey(
-    params,
-    hkdf_key,
-    {name: "AES-GCM", length: 128},
-    EXTRACTABLE_CRYPTO_KEYS,
-    ["encrypt", "decrypt"],
-  );
-  if (DEBUG_CRYPTO_SECRETS) {
-    console.log("Generated per-file key", {
-      salt: base64_encode(salt),
-      key: base64_encode(new Uint8Array(await crypto.subtle.exportKey('raw', key))),
-    });
-  }
-  return key;
-}
-
-async function genCryptoParamsForUpload(hkdf_key: CryptoKey): Promise<CryptoParams> {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const key = await genCryptoKeyForFile(hkdf_key, salt);
-  return {
-    salt,
-    key,
-    filename_iv: crypto.getRandomValues(new Uint8Array(12)),
-    data_iv: crypto.getRandomValues(new Uint8Array(12)),
-  };
-}
-
-async function encrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
-  if (DEBUG_CRYPTO_SECRETS) {
-    const exported_key = await crypto.subtle.exportKey('raw', key);
-    console.log("encrypting", {
-      key: base64_encode(new Uint8Array(exported_key)),
-      iv: base64_encode(iv),
-    });
-  }
-
-  return new Uint8Array(await crypto.subtle.encrypt(
-    {
-      name: "AES-GCM",
-      iv,
-    },
-    key,
-    data,
-  ));
-}
 
 async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null): Promise<APIFile> {
   if (hkdf_keys === null) {
-    hkdf_keys = await getHKDFKeys();
+    hkdf_keys = await FileCrypto.getHKDFKeys();
   }
   let is_e2ee = true;
   let hkdf_key = hkdf_keys.e2ee_key;
@@ -279,16 +184,9 @@ async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null):
     hkdf_key = hkdf_keys.server_trust_key;
   }
 
-  const crypto_params = await genCryptoParamsForUpload(hkdf_key);
-  if (DEBUG_CRYPTO_SECRETS) {
-    console.log({
-      filename_iv: base64_encode(crypto_params.filename_iv),
-      data_iv: base64_encode(crypto_params.data_iv),
-    });
-  }
-  const encrypted_filename = await encrypt(
-    crypto_params.key,
-    crypto_params.filename_iv,
+  const crypto_params = await FileCrypto.generateParametersForNewFile(hkdf_key);
+  const encrypted_filename = await FileCrypto.encryptFileName(
+    crypto_params,
     new TextEncoder().encode(file.name) as Uint8Array<ArrayBuffer>,
   );
   const unencrypted_data = new Uint8Array(await new Promise((resolve, reject) => {
@@ -300,9 +198,8 @@ async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null):
     reader.readAsArrayBuffer(file);
   }));
 
-  const encrypted_data = await encrypt(
-    crypto_params.key,
-    crypto_params.data_iv,
+  const encrypted_data = await FileCrypto.encryptFileContents(
+    crypto_params,
     unencrypted_data,
   );
 
@@ -313,14 +210,14 @@ async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null):
     data_iv: crypto_params.data_iv,
     encrypted_filename,
     encrypted_data,
-  }
+  };
 
   const response: UploadFile.Response = await UploadFile.exec(request);
   return response.file;
 }
 
 async function handleFiles(files: FileList) {
-  const hkdf_keys = await getHKDFKeys();
+  const hkdf_keys = await FileCrypto.getHKDFKeys();
   try {
     return await Promise.all(Array.from(files).map((file) => encryptSingleFile(file, hkdf_keys)));
   } catch (e) {
@@ -414,7 +311,7 @@ export default function IndexPage(): ReactNode {
   const navigate = useNavigate();
 
   useEffect(() => {
-    getHKDFKeys().then(setHKDFKeys);
+    FileCrypto.getHKDFKeys().then(setHKDFKeys);
     ListFiles.exec().then((response) => setFiles(response.files));
   }, []);
 
