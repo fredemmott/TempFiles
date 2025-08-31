@@ -8,13 +8,16 @@ mod api_error;
 mod app_db;
 mod app_html;
 mod prf_seed;
+mod prune;
 mod routes;
 mod serve;
 mod session;
 
+use crate::prune::prune;
 use clap::{Parser, Subcommand};
 use sqlx::query;
 use std::io::{Write, stdin, stdout};
+use std::path::PathBuf;
 
 #[macro_use]
 extern crate rocket;
@@ -103,12 +106,20 @@ enum Commands {
     },
     Serve,
     GenTS,
+    Prune,
 }
 
 fn generate_typescript() {
     let dest = "www/gen";
     serve::generate_typescript(dest);
     println!("Generated TypeScript files.");
+}
+
+async fn prune_main() -> anyhow::Result<()> {
+    let mut db = unpooled_db().await?;
+    let root: PathBuf = "uploads/".into();
+    prune(&mut db, &root).await?;
+    Ok(())
 }
 
 #[tokio::main]
@@ -120,6 +131,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::AddUser { username, force } => add_user(username, force.to_owned()).await,
         Commands::Serve => serve::serve().await?,
         Commands::GenTS => generate_typescript(),
+        Commands::Prune => prune_main().await?,
     }
     Ok(())
 }
