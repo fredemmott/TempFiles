@@ -289,7 +289,7 @@ async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null):
   const encrypted_filename = await encrypt(
     crypto_params.key,
     crypto_params.filename_iv,
-    new TextEncoder().encode(file.name),
+    new TextEncoder().encode(file.name) as Uint8Array<ArrayBuffer>,
   );
   const unencrypted_data = new Uint8Array(await new Promise((resolve, reject) => {
     const reader = new FileReader();
