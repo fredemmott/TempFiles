@@ -65,3 +65,5 @@ cargo run add-user USERNAME
 
 - Use `npm run dev` to run dev in development mode
 - Use `cargo run gen-ts` to update the TypeScript types that are generated from Rust
+- Use `npm run tsc --noEmit` to run the TypeScript compiler without generating JavaScript output;
+  vite takes care of generating JavaScript, but this is useful for checking the project as a whole
