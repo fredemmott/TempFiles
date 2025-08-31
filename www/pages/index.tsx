@@ -154,7 +154,13 @@ function FilesListEntry({file, hkdf_keys}: FileListEntryProps): ReactNode {
               file,
               key!,
               decryptedFilename!,
-            );
+            ).catch((ex) => {
+              if (ex instanceof Response) {
+                alert(`An error occurred downloading a file: ${ex.status} ${ex.statusText}`);
+              } else {
+                alert(`An error occurred downloading a file: ${ex}`);
+              }
+            });
           }}>{decryptedFilename}</a></td>
         <td>{time}</td>
         <td>{date}</td>
