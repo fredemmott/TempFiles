@@ -1,4 +1,3 @@
-use crate::config::Config;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -26,9 +25,7 @@ impl AppHtml {
 
     fn get_content(vite_config: &ViteConfig) -> String {
         let footer = Self::get_vite_footer(vite_config);
-        include_str!("../www/app.html")
-            .replace("{{SITE_CONFIG_TITLE}}", &Config::from_filesystem().title)
-            .replace("{{GENERATED_VITE_FOOTER}}", footer.as_ref())
+        include_str!("../www/app.html").replace("{{GENERATED_VITE_FOOTER}}", footer.as_ref())
     }
 
     fn get_vite_footer(vite_config: &ViteConfig) -> String {

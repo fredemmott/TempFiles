@@ -1,19 +1,15 @@
 mod api_error;
 mod app_db;
 mod app_html;
-mod config;
 mod prf_seed;
 mod routes;
 mod serve;
 mod session;
 
-use base64::prelude::*;
 use clap::{Parser, Subcommand};
-use config::Config;
-use rocket::serde::json::serde_json;
 use sqlx::query;
 use std::io::{Write, stdin, stdout};
-use url::Url;
+
 #[macro_use]
 extern crate rocket;
 
@@ -44,31 +40,6 @@ fn prompt(prompt: &str) -> Option<String> {
 }
 
 async fn init() {
-    let title = prompt("App title, e.g. 'Fred's Temp Files': ").unwrap();
-    let origin = prompt("Origin URL, e.g. 'https://fred.example.com': ").unwrap();
-    let origin_url = Url::parse(&origin).expect("Origin was not a valid URL");
-    let domain = origin_url.domain().expect("Origin must include a domain");
-    let default_rp_id = domain;
-    let rp_id = prompt(&format!(
-        "Relying Party ID (default: `{}`): ",
-        &default_rp_id
-    ))
-    .unwrap_or(default_rp_id.to_string());
-
-    let suffix = format!(".{}", rp_id);
-    if domain != rp_id && !domain.ends_with(&suffix) {
-        panic!("Domain is not a subdomain of the Relying Part ID.");
-    }
-
-    let config = Config {
-        title: title.to_string(),
-        origin: origin_url,
-        rp_id: rp_id.to_string(),
-    };
-    let toml = toml::to_string(&config).expect("Could not serialize configuration");
-    std::fs::write("config.toml", &toml).expect("Could not write configuration file");
-    println!("Wrote config.toml:\n{}", &toml);
-
     generate_typescript();
 
     let user = prompt("Enter first username (blank to skip): ");
@@ -76,6 +47,7 @@ async fn init() {
         add_user(&user, false).await;
     }
 }
+
 async fn add_user(username: &str, force: bool) {
     let mut conn = unpooled_db().await.unwrap();
     if force {
@@ -101,23 +73,18 @@ async fn add_user(username: &str, force: bool) {
     .last_insert_rowid();
     println!("Added user {} with ID {}", username, user_id);
 
-    let token = rand::random::<[u8; 64]>();
-    let token_slice = token.as_slice();
+    let token = bs58::encode(rand::random::<[u8; 64]>()).into_string();
     query!(
         "INSERT INTO registration_tokens (user_id, token) VALUES (?1, ?2)",
         user_id,
-        token_slice
+        token,
     )
     .execute(&mut conn)
     .await
     .unwrap();
-    let mut register_url = Config::from_filesystem().origin;
-    register_url.set_path(uri!(serve::register).path().to_string().as_ref());
-    register_url.query_pairs_mut().append_pair(
-        "t",
-        &base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token),
-    );
-    println!("Registration URL: {}", register_url);
+    // Using base58 for being concise and having no special characters.
+    // This makes double-click-to-copy easier
+    println!("Registration code: {}", token);
 }
 
 #[derive(Subcommand)]
@@ -134,16 +101,6 @@ enum Commands {
 
 fn generate_typescript() {
     let dest = "www/gen";
-    std::fs::create_dir_all(&dest).unwrap();
-    std::fs::write(
-        format!("{}/site-config.ts", &dest),
-        format!(
-            "export const CONFIG = {};",
-            serde_json::to_string_pretty(&Config::from_filesystem()).unwrap(),
-        ),
-    )
-    .unwrap();
-
     serve::generate_typescript(dest);
     println!("Generated TypeScript files.");
 }

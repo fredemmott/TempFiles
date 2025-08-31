@@ -72,6 +72,14 @@ body {
   }
 }
 
+.login-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  align-items: center;
+  justify-content: center;
+}
+
 .login-button {
   padding: 1em;
   display: flex;
@@ -82,10 +90,21 @@ body {
   margin-right: auto;
 }
 
+.login-register-link {
+  color: #999;
+  font-size: 80%;
+}
+
 .login-button-icon {
   font-size: xxx-large;
 }
 
 .login-button-text {
   font-size: large;
+}
+
+.registration-form {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5em;
 }

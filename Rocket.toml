@@ -8,6 +8,11 @@ file = "128 MiB"
 [default.databases.app_db]
 url = "sqlite:db.sqlite"
 
+[debug.webauthn.relying_party]
+id = "localhost"
+origin = "http://localhost:8080"
+name = "TempFiles"
+
 [debug.vite]
 type = "Dev"
 origin = "http://localhost:5173"

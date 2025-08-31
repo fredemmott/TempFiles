@@ -1,7 +1,5 @@
 use crate::api_error::ApiError;
 use crate::app_db::AppDb;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use base64::prelude::*;
 use rocket::State;
 use rocket::serde::json::Json;
 use rocket_db_pools::Connection;
@@ -63,8 +61,6 @@ pub async fn start(
     webauthn: &State<Webauthn>,
     registrations: &State<PendingRegistrations>,
 ) -> Result<Json<StartResponse>, ApiError> {
-    let token_base64 = &payload.token;
-    let token = URL_SAFE_NO_PAD.decode(token_base64).unwrap();
     let user = query!(
         r#"
     SELECT username, uuid, users.id as user_id
@@ -73,7 +69,7 @@ pub async fn start(
     WHERE registration_tokens.token = ?1
     AND registration_tokens.expires_at > CURRENT_TIMESTAMP
     "#,
-        token
+        payload.token
     )
     .fetch_one(&mut **db)
     .await?;
@@ -125,9 +121,6 @@ pub async fn finish(
 
     let passkey = webauthn.finish_passkey_registration(&payload.credential, &registration.state)?;
 
-    let token_base64 = &payload.token;
-    let token = URL_SAFE_NO_PAD.decode(token_base64).unwrap();
-
     let conn = db.acquire().await?;
     let mut tx = conn.begin().await?;
 
@@ -139,13 +132,16 @@ pub async fn finish(
     WHERE registration_tokens.token = ?1
     AND registration_tokens.expires_at > CURRENT_TIMESTAMP;
     "#,
-        token
+        payload.token
     )
     .fetch_one(&mut *tx)
     .await?;
-    query!("DELETE FROM registration_tokens WHERE token = ?1", token)
-        .execute(&mut *tx)
-        .await?;
+    query!(
+        "DELETE FROM registration_tokens WHERE token = ?1",
+        payload.token
+    )
+    .execute(&mut *tx)
+    .await?;
 
     if user.user_id != registration.user_id {
         return Err(ApiError::NotFoundError());

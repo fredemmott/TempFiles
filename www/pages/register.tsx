@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useRef} from "react";
 import {useState} from "react";
 import {Link, useSearchParams} from "react-router";
 import * as StartRegistration from "../api/register/start";
@@ -112,8 +112,20 @@ namespace States {
 
 export default function RegistrationPage() {
   const [state, setState] = useState<States.Any>({state: "initial"});
-  const [searchParams, setSearchParams] = useSearchParams();
-  let token = searchParams.get("t")!
+
+  const RegistrationForm = () => {
+    let inputRef = useRef<HTMLInputElement>(null);
+    return <form className={"registration-form"}>
+      <input
+        name={"token"}
+        type={"text"}
+        ref={inputRef}
+        size={96}
+        aria-description={"Registration token"}
+        placeholder={"Registration token"}/>
+      <button onClick={() => register(inputRef.current!.value, setState)} type={"submit"}>Add Passkey</button>
+    </form>
+  };
 
   switch (state.state) {
     case "initial":
@@ -123,32 +135,31 @@ export default function RegistrationPage() {
           because for end-to-end encryption on other devices varies depending on the hardware, operating system,
           and browser.
         </div>
-        <button onClick={() => register(token, setState)}>Add Passkey</button>
+        <RegistrationForm/>
       </>;
     case "submitting-challenge-response":
       return <div>Waiting for server...</div>;
     case "prompting-user":
       return <div>Follow your browser prompts to register your passkey.</div>;
     case "registered":
-      if (token) {
-        setSearchParams({});
-      }
       return <div>Your passkey has been registered! You can now <Link to="/login">login</Link>.</div>
     case "local-error":
       return <div>
         Something went wrong on this end: {state.message}.
         <br/>
-        <button onClick={() => register(token, setState)}>Try again</button>
+        <RegistrationForm/>
       </div>;
     case "invalid-token":
       return <div>
         The registration token is invalid or expired; you will need to generate a new registration link.
+        <br/>
+        <RegistrationForm/>
       </div>;
     case "server-error":
       return <div>
         The server returned an error: {state.response.status} {state.response.statusText}.
         <br/>
-        <button onClick={() => register(token, setState)}>Try again</button>
+        <RegistrationForm/>
       </div>;
   }
 }

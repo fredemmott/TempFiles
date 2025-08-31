@@ -8,7 +8,7 @@ import base64_decode from "../base64_decode";
 // the tab in credential.toJSON() or JSON.stringify()
 import * as WebauthnJSON from "@github/webauthn-json/browser-ponyfill"
 import {CredentialRequestOptionsJSON} from "@github/webauthn-json/browser-ponyfill";
-import {Navigate, useNavigate, useSearchParams} from "react-router";
+import {Link, Navigate, useNavigate, useSearchParams} from "react-router";
 
 namespace States {
   export interface Initial {
@@ -157,9 +157,15 @@ export default function LoginPage() {
     </div>
   </button>;
 
+  const RegisterLink = () =>
+    <Link to={"/register"} className={"login-register-link"}>Have a registration code?</Link>;
+
   switch (state.state) {
     case "initial":
-      return <LoginButton/>;
+      return <div className={"login-page"}>
+        <LoginButton/>
+        <RegisterLink/>
+      </div>;
     case "prompting-user":
       return <div>Follow your browser prompts.</div>;
     case "requested-challenge":
@@ -171,16 +177,19 @@ export default function LoginPage() {
       return <div className={"login-error"}>
         <p>Something went wrong communicating with the server.</p>
         <LoginButton/>
+        <RegisterLink/>
       </div>;
     case "local-error":
       return <div className={"login-error"}>
         <p>Something went wrong on this end: <code>{state.message}</code>.</p>
         <LoginButton/>
+        <RegisterLink/>
       </div>;
     case "no-credentials":
       return <div className={"login-error"}>
         <p>Your browser does not have any passkeys saved for this site; you can try again.</p>
         <LoginButton/>
+        <RegisterLink/>
       </div>;
   }
 }
