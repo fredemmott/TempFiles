@@ -7,13 +7,13 @@
 import React, {ReactNode, useEffect, useRef, useState} from 'react'
 import * as Session from '../Session'
 import * as ListFiles from '../api/files/list'
-import * as UploadFile from '../api/files/upload'
 import * as DownloadFile from '../api/files/download'
 import * as DeleteAllFiles from '../api/files/delete_all'
 import {File as APIFile} from '../gen/api/files/File'
 import {Navigate, useNavigate} from "react-router";
 import * as Base64 from "../Base64";
 import * as FileCrypto from "../FileCrypto"
+import * as FileUpload from "../FileUpload";
 
 type HKDFKeys = FileCrypto.HKDFKeys;
 
@@ -172,64 +172,7 @@ function FilesList({files, hkdfKeys}: FilesListProps): ReactNode {
   </div>;
 }
 
-
-async function encryptSingleFile(file: File, hkdf_keys: HKDFKeys | null = null): Promise<APIFile> {
-  if (hkdf_keys === null) {
-    hkdf_keys = await FileCrypto.getHKDFKeys();
-  }
-  let is_e2ee = true;
-  let hkdf_key = hkdf_keys.e2ee_key;
-  if (hkdf_key === null) {
-    is_e2ee = false;
-    hkdf_key = hkdf_keys.server_trust_key;
-  }
-
-  const crypto_params = await FileCrypto.generateParametersForNewFile(hkdf_key);
-  const encrypted_filename = await FileCrypto.encryptFileName(
-    crypto_params,
-    new TextEncoder().encode(file.name) as Uint8Array<ArrayBuffer>,
-  );
-  const unencrypted_data = new Uint8Array(await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      resolve(new Uint8Array(reader.result as ArrayBuffer));
-    };
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(file);
-  }));
-
-  const encrypted_data = await FileCrypto.encryptFileContents(
-    crypto_params,
-    unencrypted_data,
-  );
-
-  const request: UploadFile.Request = {
-    is_e2ee,
-    salt: crypto_params.salt,
-    filename_iv: crypto_params.filename_iv,
-    data_iv: crypto_params.data_iv,
-    encrypted_filename,
-    encrypted_data,
-  };
-
-  const response: UploadFile.Response = await UploadFile.exec(request);
-  return response.file;
-}
-
-async function handleFiles(files: FileList) {
-  const hkdf_keys = await FileCrypto.getHKDFKeys();
-  try {
-    return await Promise.all(Array.from(files).map((file) => encryptSingleFile(file, hkdf_keys)));
-  } catch (e) {
-    if (e instanceof Response) {
-      alert(`An error occurred uploading a file to the server: ${e.status} ${e.statusText}`);
-      window.location.reload();
-    }
-    throw e;
-  }
-}
-
-async function uploadDroppedFiles(e: React.DragEvent<HTMLDivElement>): Promise<APIFile[]> {
+async function uploadDroppedFiles(e: React.DragEvent<HTMLDivElement>, hkdfKeys: HKDFKeys): Promise<APIFile[]> {
   e.preventDefault();
   e.stopPropagation();
 
@@ -237,14 +180,24 @@ async function uploadDroppedFiles(e: React.DragEvent<HTMLDivElement>): Promise<A
   if (files.length === 0) {
     return [];
   }
-  return await handleFiles(files);
+  return await FileUpload.multipleFiles(files, hkdfKeys);
 }
 
 interface FilePickerProps {
+  hkdfKeys: HKDFKeys | null,
   onUpload: (files: APIFile[]) => void,
 }
 
-function FilePicker({onUpload}: FilePickerProps): ReactNode {
+function FilePicker({hkdfKeys, onUpload}: FilePickerProps): ReactNode {
+  if (hkdfKeys === null) {
+    return <div className={"file-picker"}>
+      <div className="file-picker-content">
+        <div className={"file-picker-icon"}>⏳</div>
+        <div className={"file-picker-text"}>Loading keys...</div>
+      </div>
+    </div>;
+  }
+
   const [isDragOver, setIsDragOver] = useState(false);
 
   const preventDefault = (e: any) => {
@@ -264,13 +217,13 @@ function FilePicker({onUpload}: FilePickerProps): ReactNode {
         if (files === null) {
           return;
         }
-        handleFiles(files).then(onUpload);
+        FileUpload.multipleFiles(files, hkdfKeys).then(onUpload);
       }}
     />;
 
   const containerRef = useRef<HTMLDivElement>(null);
-
   return <div
+    className={`file-picker ${isDragOver ? "drag-over" : ""}`}
     ref={containerRef}
     onDragEnter={(e) => {
       preventDefault(e);
@@ -284,7 +237,7 @@ function FilePicker({onUpload}: FilePickerProps): ReactNode {
       }
     }}
     onDrop={(e) => {
-      uploadDroppedFiles(e).then(onUpload);
+      uploadDroppedFiles(e, hkdfKeys).then(onUpload);
       setIsDragOver(false);
     }}
     onClick={() => {
@@ -292,7 +245,6 @@ function FilePicker({onUpload}: FilePickerProps): ReactNode {
         inputRef.current.click();
       }
     }}
-    className={`file-picker ${isDragOver ? "drag-over" : ""}`}
   >
     <div className="file-picker-content" style={{pointerEvents: "none"}}>
       <div className={"file-picker-icon"}>📂</div>
@@ -343,9 +295,11 @@ export default function IndexPage(): ReactNode {
         }}>Logout</a>
       </div>
     </div>
-    <FilePicker onUpload={(newFiles) =>
-      setFiles([...files, ...newFiles])
-    }/>
+    <FilePicker
+      hkdfKeys={hkdfKeys}
+      onUpload={(newFiles) =>
+        setFiles([...files, ...newFiles])
+      }/>
     <FilesList files={files} hkdfKeys={hkdfKeys}/>
     <div className={"footer"}>
       Powered by {' '}
