@@ -3,5 +3,5 @@ target
 *.sqlite
 .idea
 prf_seed.key
-config.toml
 uploads/
+Rocket.local.toml
