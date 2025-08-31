@@ -4,8 +4,7 @@
  *
  */
 
-import base64_decode from "./base64_decode";
-import base64_encode from "./base64_encode";
+import * as Base64 from "./Base64";
 
 export interface InitData {
   session: string,
@@ -25,9 +24,9 @@ export function initialize(data: InitData): void {
   if (prf && prf.results && prf.results.first) {
     let source = prf.results.first;
     if (source instanceof ArrayBuffer) {
-      sessionStorage.setItem("prf", base64_encode(new Uint8Array(source)));
+      sessionStorage.setItem("prf", Base64.encode(new Uint8Array(source)));
     } else {
-      sessionStorage.setItem("prf", base64_encode(new Uint8Array(source.buffer)));
+      sessionStorage.setItem("prf", Base64.encode(new Uint8Array(source.buffer)));
     }
   }
 }
@@ -46,7 +45,7 @@ async function hkdf_key(seed: string | null): Promise<CryptoKey | null> {
   }
   return await crypto.subtle.importKey(
     "raw",
-    base64_decode(seed),
+    Base64.decode(seed),
     "HKDF",
     false,
     ["deriveKey"]

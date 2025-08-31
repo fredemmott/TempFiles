@@ -6,8 +6,7 @@
 
 import {UploadRequest} from "../../gen/api/files/UploadRequest";
 import {UploadResponse} from "../../gen/api/files/UploadResponse";
-import base64_decode from "../../base64_decode";
-import base64_encode from "../../base64_encode";
+import * as Base64 from "../../Base64";
 import * as APICall from "../APICall";
 
 export type {UploadRequest as Request, UploadResponse as Response}
@@ -24,7 +23,7 @@ export async function exec(request: UploadRequest): Promise<UploadResponse> {
       continue;
     }
 
-    form_request.set(key, base64_encode(value));
+    form_request.set(key, Base64.encode(value));
   }
 
   const body = await APICall.authenticated_json(
@@ -36,10 +35,10 @@ export async function exec(request: UploadRequest): Promise<UploadResponse> {
     ...body,
     file: {
       ...body.file,
-      salt: base64_decode(body.file.salt),
-      data_iv: base64_decode(body.file.data_iv),
-      filename_iv: base64_decode(body.file.filename_iv),
-      encrypted_filename: base64_decode(body.file.encrypted_filename),
+      salt: Base64.decode(body.file.salt),
+      data_iv: Base64.decode(body.file.data_iv),
+      filename_iv: Base64.decode(body.file.filename_iv),
+      encrypted_filename: Base64.decode(body.file.encrypted_filename),
     },
   };
 }

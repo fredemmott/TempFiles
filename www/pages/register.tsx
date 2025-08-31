@@ -9,12 +9,12 @@ import {useState} from "react";
 import {Link, useSearchParams} from "react-router";
 import * as StartRegistration from "../api/register/start";
 import * as FinishRegistration from "../api/register/finish";
-import base64_decode from "../base64_decode";
+import * as Base64 from "../Base64";
 
 async function create_credential(server_data: StartRegistration.Response) {
   let challenge = server_data.challenge as any;
-  challenge.publicKey.user.id = base64_decode(challenge.publicKey.user.id);
-  challenge.publicKey.challenge = base64_decode(challenge.publicKey.challenge);
+  challenge.publicKey.user.id = Base64.decode(challenge.publicKey.user.id);
+  challenge.publicKey.challenge = Base64.decode(challenge.publicKey.challenge);
   challenge.publicKey.hints = ["hybrid"];
   challenge.publicKey.extensions = {prf: {}};
   challenge.publicKey.authenticatorSelection = {

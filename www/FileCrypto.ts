@@ -4,7 +4,7 @@
  *
  */
 
-import base64_encode from "./base64_encode";
+import * as Base64 from "./Base64";
 import * as Session from "./Session";
 
 const DEBUG_CRYPTO_SECRETS = false;
@@ -19,8 +19,8 @@ async function encrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data: Uint8A
   if (DEBUG_CRYPTO_SECRETS) {
     const exported_key = await crypto.subtle.exportKey('raw', key);
     console.log("encrypting", {
-      key: base64_encode(new Uint8Array(exported_key)),
-      iv: base64_encode(iv),
+      key: Base64.encode(new Uint8Array(exported_key)),
+      iv: Base64.encode(iv),
     });
   }
 
@@ -46,8 +46,8 @@ export async function decrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data:
   if (DEBUG_CRYPTO_SECRETS) {
     const exported_key = await crypto.subtle.exportKey('raw', key);
     console.log("decrypting", {
-      key: base64_encode(new Uint8Array(exported_key)),
-      iv: base64_encode(iv),
+      key: Base64.encode(new Uint8Array(exported_key)),
+      iv: Base64.encode(iv),
       data
     });
   }
@@ -89,8 +89,8 @@ export async function deriveKey(hkdf_key: CryptoKey, salt: Uint8Array<ArrayBuffe
   );
   if (DEBUG_CRYPTO_SECRETS) {
     console.log("Generated per-file key", {
-      salt: base64_encode(salt),
-      key: base64_encode(new Uint8Array(await crypto.subtle.exportKey('raw', key))),
+      salt: Base64.encode(salt),
+      key: Base64.encode(new Uint8Array(await crypto.subtle.exportKey('raw', key))),
     });
   }
   return key;
@@ -114,8 +114,8 @@ export async function generateParametersForNewFile(hkdf_key: CryptoKey): Promise
   };
   if (DEBUG_CRYPTO_SECRETS) {
     console.log({
-      filename_iv: base64_encode(params.filename_iv),
-      data_iv: base64_encode(params.data_iv),
+      filename_iv: Base64.encode(params.filename_iv),
+      data_iv: Base64.encode(params.data_iv),
     });
   }
   return params;

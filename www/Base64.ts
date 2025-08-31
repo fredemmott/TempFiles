@@ -8,9 +8,20 @@ declare global {
   interface Uint8ArrayConstructor {
     fromBase64?: (_: string) => Uint8Array<ArrayBuffer>;
   }
+
+  interface Uint8Array<TArrayBuffer> {
+    toBase64?: () => string;
+  }
 }
 
-export default function base64_decode(encoded: string): Uint8Array<ArrayBuffer> {
+export function encode(data: Uint8Array<ArrayBufferLike>): string {
+  if (data.toBase64) {
+    return data.toBase64();
+  }
+  return btoa(String.fromCharCode(...data));
+}
+
+export function decode(encoded: string): Uint8Array<ArrayBuffer> {
   // Transparently allow url-safe base64
   encoded = encoded.replaceAll("-", "+").replaceAll("_", "/");
   const padding = (4 - (encoded.length % 4)) % 4;

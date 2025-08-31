@@ -12,7 +12,7 @@ import * as DownloadFile from '../api/files/download'
 import * as DeleteAllFiles from '../api/files/delete_all'
 import {File as APIFile} from '../gen/api/files/File'
 import {Navigate, useNavigate} from "react-router";
-import base64_encode from "../base64_encode";
+import * as Base64 from "../Base64";
 import * as FileCrypto from "../FileCrypto"
 
 type HKDFKeys = FileCrypto.HKDFKeys;
@@ -165,7 +165,7 @@ function FilesList({files, hkdfKeys}: FilesListProps): ReactNode {
     <table className={"files-list-table"}>
       <tbody>
       {files.map((file) =>
-        <FilesListEntry key={base64_encode(file.salt)} file={file} hkdf_keys={hkdfKeys}/>
+        <FilesListEntry key={Base64.encode(file.salt)} file={file} hkdf_keys={hkdfKeys}/>
       )}
       </tbody>
     </table>
