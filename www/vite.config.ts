@@ -1,3 +1,9 @@
+/*
+ * Copyright 2025 Fred Emmott <fred@fredemmott.com>
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
 import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
 

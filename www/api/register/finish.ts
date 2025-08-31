@@ -1,3 +1,9 @@
+/*
+ * Copyright 2025 Fred Emmott <fred@fredemmott.com>
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
 import {FinishRequest} from "../../gen/api/register/FinishRequest"
 import {FinishResponse} from "../../gen/api/register/FinishResponse"
 

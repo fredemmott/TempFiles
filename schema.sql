@@ -1,3 +1,9 @@
+/*
+ * Copyright 2025 Fred Emmott <fred@fredemmott.com>
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
 CREATE TABLE users
 (
   id         INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,

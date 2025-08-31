@@ -1,3 +1,9 @@
+/*
+ * Copyright 2025 Fred Emmott <fred@fredemmott.com>
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
 import React, {useRef} from "react";
 import {useState} from "react";
 import {Link, useSearchParams} from "react-router";

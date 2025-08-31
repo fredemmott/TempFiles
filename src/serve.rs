@@ -1,3 +1,9 @@
+/*
+ * Copyright 2025 Fred Emmott <fred@fredemmott.com>
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
 extern crate rocket;
 use crate::app_db::AppDb;
 use crate::app_html::{AppHtml, ViteConfig};

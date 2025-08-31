@@ -1,3 +1,9 @@
+/*
+ * Copyright 2025 Fred Emmott <fred@fredemmott.com>
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
 import {ListResponse} from "../../gen/api/files/ListResponse";
 import * as APICall from "../APICall";
 import base64_decode from "../../base64_decode";

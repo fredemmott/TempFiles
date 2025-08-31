@@ -1,3 +1,9 @@
+/*
+ * Copyright 2025 Fred Emmott <fred@fredemmott.com>
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
 use crate::api_error::ApiError;
 use base64::prelude::*;
 use rocket::http::Status;

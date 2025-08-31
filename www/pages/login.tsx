@@ -1,3 +1,9 @@
+/*
+ * Copyright 2025 Fred Emmott <fred@fredemmott.com>
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
 import React, {useEffect, useState} from "react";
 import * as StartLogin from "../api/login/start";
 import * as FinishLogin from "../api/login/finish";

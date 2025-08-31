@@ -1,3 +1,9 @@
+/*
+ * Copyright 2025 Fred Emmott <fred@fredemmott.com>
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
 use rocket::http::Status;
 use rocket::response::Responder;
 use rocket::{Request, response};

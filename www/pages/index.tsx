@@ -1,3 +1,9 @@
+/*
+ * Copyright 2025 Fred Emmott <fred@fredemmott.com>
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
 import React, {ReactNode, useEffect, useRef, useState} from 'react'
 import * as Session from '../Session'
 import * as ListFiles from '../api/files/list'

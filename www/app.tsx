@@ -1,3 +1,9 @@
+/*
+ * Copyright 2025 Fred Emmott <fred@fredemmott.com>
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
 import React, {lazy} from "react"
 import ReactDOM from "react-dom/client"
 import {BrowserRouter, Routes, Route} from "react-router"

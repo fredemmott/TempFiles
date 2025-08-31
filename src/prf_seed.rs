@@ -1,3 +1,9 @@
+/*
+ * Copyright 2025 Fred Emmott <fred@fredemmott.com>
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
 use rand::random;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};

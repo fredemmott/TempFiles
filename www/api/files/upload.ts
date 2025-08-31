@@ -1,3 +1,9 @@
+/*
+ * Copyright 2025 Fred Emmott <fred@fredemmott.com>
+ * SPDX-License-Identifier: MIT
+ *
+ */
+
 import {UploadRequest} from "../../gen/api/files/UploadRequest";
 import {UploadResponse} from "../../gen/api/files/UploadResponse";
 import base64_decode from "../../base64_decode";
