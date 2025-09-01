@@ -5,7 +5,7 @@
  */
 
 import React, {ReactNode, useRef, useState} from "react";
-import {File as APIFile} from "../gen/api/files/File";
+import {File as APIFile} from "../api/files/File";
 import * as FileUpload from "../FileUpload";
 import * as FileCrypto from "../FileCrypto";
 

@@ -4,12 +4,11 @@
  *
  */
 
-import {UploadRequest as APIRequest} from "../../gen/api/files/UploadRequest";
-import {UploadResponse} from "../../gen/api/files/UploadResponse";
+import {UploadRequest as ClientRequest} from "../../gen/api/files/UploadRequest";
+import {UploadResponse as ServerResponse} from "../../gen/api/files/UploadResponse";
+import {File as APIFile} from "./File";
 import * as Base64 from "../../Base64";
 import * as APICall from "../APICall";
-
-export type {UploadResponse as Response}
 
 export interface Request {
   is_e2ee: boolean,
@@ -20,9 +19,13 @@ export interface Request {
   encrypted_data: Uint8Array<ArrayBuffer>,
 }
 
-export async function exec(req: Request): Promise<UploadResponse> {
-  const apiRequest: APIRequest = {
-    is_e2ee: req.is_e2ee ? 'true' : 'false',
+export interface Response {
+  file: APIFile,
+}
+
+export async function exec(req: Request): Promise<Response> {
+  const apiRequest: ClientRequest = {
+    is_e2ee: req.is_e2ee ? 'true' : 'false', // needed for JS <-> Rust FormData, as opposed to JSON
     salt: Base64.encode(req.salt),
     filename_iv: Base64.encode(req.filename_iv),
     data_iv: Base64.encode(req.data_iv),
@@ -34,19 +37,10 @@ export async function exec(req: Request): Promise<UploadResponse> {
     formRequest.set(key, value);
   }
 
-  const body = await APICall.authenticatedJSON(
+  const body: ServerResponse = await APICall.authenticatedJSON(
     "/api/files/upload",
     {
       body: formRequest,
     });
-  return {
-    ...body,
-    file: {
-      ...body.file,
-      salt: Base64.decode(body.file.salt),
-      data_iv: Base64.decode(body.file.data_iv),
-      filename_iv: Base64.decode(body.file.filename_iv),
-      encrypted_filename: Base64.decode(body.file.encrypted_filename),
-    },
-  };
+  return {file: new APIFile(body.file)};
 }

@@ -4,7 +4,7 @@
  *
  */
 
-import {File as APIFile} from "./gen/api/files/File";
+import {File as APIFile} from "./api/files/File";
 import * as FileCrypto from "./FileCrypto";
 import * as UploadFile from "./api/files/upload";
 

@@ -4,7 +4,7 @@
  *
  */
 
-import {File as APIFile} from "../gen/api/files/File";
+import {File as APIFile} from "../api/files/File";
 import React, {ReactNode, useEffect, useState} from "react";
 import * as DeleteFile from "../api/files/delete";
 import * as DownloadFile from "../api/files/download";
@@ -135,7 +135,7 @@ export default function FilesListRow({file, hkdfKeys, onDelete}: FileListEntryPr
                   if (result == "deleted") {
                     onDelete(file.uuid);
                   }
-          })}
+                })}
           title={"Delete this file"}>🗑️</span></td>
         <td>{time}</td>
         <td>{date}</td>

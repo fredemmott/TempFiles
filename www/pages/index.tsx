@@ -8,7 +8,7 @@ import React, {ReactNode, useEffect, useState} from 'react'
 import * as Session from '../Session'
 import * as ListFiles from '../api/files/list'
 import * as DeleteAllFiles from '../api/files/delete_all'
-import {File as APIFile} from '../gen/api/files/File'
+import {File as APIFile} from '../api/files/File'
 import {Navigate, useNavigate} from "react-router";
 import * as FileCrypto from "../FileCrypto"
 import FilesList from "../components/FilesList";

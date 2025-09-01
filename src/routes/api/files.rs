@@ -22,16 +22,12 @@ use uuid::Uuid;
 #[ts(export_to = "api/files/File.ts")]
 pub struct File {
     pub uuid: Uuid,
+    #[ts(type = "number")]
     pub created_at: i64,
-
     pub is_e2ee: bool,
-    #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub salt: String,
-    #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub filename_iv: String,
-    #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub data_iv: String,
-    #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub encrypted_filename: String,
 }
 

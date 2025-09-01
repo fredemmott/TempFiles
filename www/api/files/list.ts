@@ -4,24 +4,17 @@
  *
  */
 
-import {ListResponse} from "../../gen/api/files/ListResponse";
+import {ListResponse as ServerResponse} from "../../gen/api/files/ListResponse";
+import {File as APIFile} from "./File";
 import * as APICall from "../APICall";
-import * as Base64 from "../../Base64";
 
-export type {ListResponse as Response}
+interface Response {
+  files: APIFile[],
+}
 
-export async function exec(): Promise<ListResponse> {
-  const body = await APICall.authenticatedJSON("/api/files/list");
+export async function exec(): Promise<Response> {
+  const body: ServerResponse = await APICall.authenticatedJSON("/api/files/list");
   return {
-    ...body,
-    files: body.files.map((file: any) => {
-      return {
-        ...file,
-        salt: Base64.decode(file.salt),
-        data_iv: Base64.decode(file.data_iv),
-        filename_iv: Base64.decode(file.filename_iv),
-        encrypted_filename: Base64.decode(file.encrypted_filename),
-      };
-    }),
+    files: body.files.map((f) => new APIFile(f)),
   };
 }
