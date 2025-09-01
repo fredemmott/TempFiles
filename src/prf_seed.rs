@@ -7,6 +7,7 @@
 use rand::random;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
+#[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 
 pub struct PrfSeed {
@@ -20,8 +21,13 @@ impl PrfSeed {
             .read(true)
             .write(true)
             .create(true)
-            .truncate(false)
-            .mode(0o600);
+            .truncate(false);
+
+        #[cfg(unix)]
+        {
+            options = options.mode(0o600);
+        }
+
         let mut file = options.open("prf_seed.key").unwrap();
         let meta = file.metadata().unwrap();
         if meta.len() == 32 {

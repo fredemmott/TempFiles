@@ -26,7 +26,10 @@ After cloning the repo, first, create the database. This must be done first as t
 build time.
 
 ```
+# For most users on MacOS or Linux:
 sqlite3 db.sqlite < schema.sql
+# or, with Powershell:
+Get-Content -raw schema.sql | sqlite3 db.sqlite
 ```
 
 Then, copy `Rocket.toml` to `Rocket.local.toml`, and edit it to match your environment.
