@@ -4,32 +4,40 @@
  *
  */
 
-import {UploadRequest} from "../../gen/api/files/UploadRequest";
+import {UploadRequest as APIRequest} from "../../gen/api/files/UploadRequest";
 import {UploadResponse} from "../../gen/api/files/UploadResponse";
 import * as Base64 from "../../Base64";
 import * as APICall from "../APICall";
 
-export type {UploadRequest as Request, UploadResponse as Response}
+export type {UploadResponse as Response}
 
-export async function exec(request: UploadRequest): Promise<UploadResponse> {
-  const form_request = new FormData();
-  for (const [key, value] of Object.entries(request)) {
-    if (typeof value === 'boolean') {
-      form_request.set(key, value.toString());
-      continue;
-    }
-    if (key === 'encrypted_data') {
-      form_request.set(key, new Blob([value], {type: 'application/octet-stream'}));
-      continue;
-    }
+export interface Request {
+  is_e2ee: boolean,
+  salt: Uint8Array<ArrayBuffer>,
+  filename_iv: Uint8Array<ArrayBuffer>,
+  data_iv: Uint8Array<ArrayBuffer>,
+  encrypted_filename: Uint8Array<ArrayBuffer>,
+  encrypted_data: Uint8Array<ArrayBuffer>,
+}
 
-    form_request.set(key, Base64.encode(value));
+export async function exec(req: Request): Promise<UploadResponse> {
+  const apiRequest: APIRequest = {
+    is_e2ee: req.is_e2ee ? 'true' : 'false',
+    salt: Base64.encode(req.salt),
+    filename_iv: Base64.encode(req.filename_iv),
+    data_iv: Base64.encode(req.data_iv),
+    encrypted_filename: Base64.encode(req.encrypted_filename),
+    encrypted_data: new Blob([req.encrypted_data], {type: 'application/octet-stream'})
+  };
+  const formRequest = new FormData();
+  for (const [key, value] of Object.entries(apiRequest)) {
+    formRequest.set(key, value);
   }
 
-  const body = await APICall.authenticated_json(
+  const body = await APICall.authenticatedJSON(
     "/api/files/upload",
     {
-      body: form_request,
+      body: formRequest,
     });
   return {
     ...body,

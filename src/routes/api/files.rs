@@ -83,17 +83,13 @@ pub async fn list(
 #[derive(TS, FromForm)]
 #[ts(export_to = "api/files/UploadRequest.ts")]
 pub struct UploadRequest<'r> {
+    #[ts(type = "'true' | 'false'")]
     pub is_e2ee: bool,
-    #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub salt: String,
-    #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub filename_iv: String,
-    #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub data_iv: String,
-    #[ts(type = "Uint8Array<ArrayBuffer>")]
     pub encrypted_filename: String,
-
-    #[ts(type = "Uint8Array<ArrayBuffer>")]
+    #[ts(type = "Blob")]
     pub encrypted_data: TempFile<'r>,
 }
 

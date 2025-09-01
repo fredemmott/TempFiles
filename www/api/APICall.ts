@@ -23,8 +23,8 @@ export async function authenticated(
     method: "POST",
     ...options,
     headers: {
-      ...options.headers,
       "Authorization": `Bearer ${Session.token()}`,
+      ...options.headers,
     }
   }
   try {
@@ -42,7 +42,7 @@ export async function authenticated(
   }
 }
 
-export async function authenticated_json(uri: string, options: RequestInit = {}): Promise<any> {
+export async function authenticatedJSON(uri: string, options: RequestInit = {}): Promise<any> {
   const response = await authenticated(uri, options);
   return await response.json();
 }

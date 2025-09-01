@@ -11,7 +11,7 @@ import * as Base64 from "../../Base64";
 export type {ListResponse as Response}
 
 export async function exec(): Promise<ListResponse> {
-  const body = await APICall.authenticated_json("/api/files/list");
+  const body = await APICall.authenticatedJSON("/api/files/list");
   return {
     ...body,
     files: body.files.map((file: any) => {
