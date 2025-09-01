@@ -17,15 +17,11 @@ pub struct PrfSeed {
 impl PrfSeed {
     pub fn load_or_create() -> Self {
         let mut options = OpenOptions::new();
-        options
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false);
+        options.read(true).write(true).create(true).truncate(false);
 
         #[cfg(unix)]
         {
-            options = options.mode(0o600);
+            options.mode(0o600);
         }
 
         let mut file = options.open("prf_seed.key").unwrap();
