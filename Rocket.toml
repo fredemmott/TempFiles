@@ -3,7 +3,8 @@ log_level = "debug"
 port = 8080
 
 [default.limits]
-file = "128 MiB"
+file = "128MiB"
+data-form = "128MiB"
 
 [default.databases.app_db]
 url = "sqlite:db.sqlite"
