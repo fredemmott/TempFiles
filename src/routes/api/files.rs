@@ -230,7 +230,34 @@ pub async fn delete_all(mut db: Connection<AppDb>, session: Session) -> Result<(
     Ok(())
 }
 
+#[derive(Deserialize, TS)]
+#[ts(export_to = "api/files/DeleteRequest.ts")]
+pub struct DeleteRequest {
+    pub uuid: Uuid,
+}
+
+#[post("/api/files/delete", data = "<payload>")]
+pub async fn delete(
+    mut db: Connection<AppDb>,
+    payload: Json<DeleteRequest>,
+    session: Session,
+) -> Result<(), ApiError> {
+    let user_id = session.user_id();
+    let file_uuid = payload.uuid;
+    let result = query!(
+        "DELETE FROM files WHERE uuid = ?1 AND user_id = ?2",
+        file_uuid,
+        user_id,
+    ).execute(&mut **db).await?;
+    if result.rows_affected() == 0 {
+        return Err(ApiError::NotFoundError());
+    }
+    std::fs::remove_file(uploaded_file_path(&file_uuid)?)?;
+    Ok(())
+}
+
 pub fn generate_typescript(dest: &str) {
+    DeleteRequest::export_all_to(dest).unwrap();
     DownloadRequest::export_all_to(dest).unwrap();
     File::export_all_to(dest).unwrap();
     ListResponse::export_all_to(dest).unwrap();

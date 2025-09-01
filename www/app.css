@@ -114,3 +114,7 @@ body {
   flex-direction: row;
   gap: 0.5em;
 }
+
+.clickable-icon {
+  cursor: pointer;
+}

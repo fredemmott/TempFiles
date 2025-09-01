@@ -6,8 +6,9 @@
 
 import {File as APIFile} from "../gen/api/files/File";
 import React, {ReactNode, useEffect, useState} from "react";
-import * as FileCrypto from "../FileCrypto";
+import * as DeleteFile from "../api/files/delete";
 import * as DownloadFile from "../api/files/download";
+import * as FileCrypto from "../FileCrypto";
 
 async function downloadFile(api_file: APIFile, key: CryptoKey, filename: string) {
   const encrypted = await DownloadFile.exec({uuid: api_file.uuid});
@@ -20,12 +21,23 @@ async function downloadFile(api_file: APIFile, key: CryptoKey, filename: string)
   URL.revokeObjectURL(url);
 }
 
+async function deleteFile(uuid: string, name: string): Promise<"deleted" | "cancelled"> {
+  if (!confirm(`Are you sure you want to delete '${name}'?`)) {
+    return "cancelled";
+  }
+
+  await DeleteFile.exec({uuid});
+
+  return "deleted";
+}
+
 interface FileListEntryProps {
   file: APIFile,
   hkdfKeys: FileCrypto.HKDFKeys,
+  onDelete: (uuid: string) => void,
 }
 
-export default function FilesListRow({file, hkdfKeys}: FileListEntryProps): ReactNode {
+export default function FilesListRow({file, hkdfKeys, onDelete}: FileListEntryProps): ReactNode {
   type State = "loading" | "loaded" | "no_key" | "requires_e2ee";
   const [state, setState] = useState<State>("loading");
   const [key, setKey] = useState<CryptoKey | null>(null);
@@ -77,21 +89,21 @@ export default function FilesListRow({file, hkdfKeys}: FileListEntryProps): Reac
   switch (state) {
     case "loading":
       return <tr>
-        <td colSpan={2}>Loading...</td>
+        <td colSpan={3}>Loading...</td>
         <td>{time}</td>
         <td>{date}</td>
       </tr>;
     case "requires_e2ee":
       return <tr>
         <td>🔒</td>
-        <td>Requires a different passkey</td>
+        <td colSpan={2}>Requires a different passkey</td>
         <td>{time}</td>
         <td>{date}</td>
       </tr>;
     case "no_key":
       return <tr>
         <td>⚠️</td>
-        <td>Unable to derive E2EE key</td>
+        <td colSpan={2}>Unable to derive E2EE key</td>
         <td>{time}</td>
         <td>{date}</td>
       </tr>;
@@ -114,6 +126,17 @@ export default function FilesListRow({file, hkdfKeys}: FileListEntryProps): Reac
               }
             });
           }}>{decryptedFilename}</a></td>
+        <td><span
+          className={"clickable-icon"}
+          onClick={
+            () =>
+              deleteFile(file.uuid, decryptedFilename!)
+                .then((result) => {
+                  if (result == "deleted") {
+                    onDelete(file.uuid);
+                  }
+          })}
+          title={"Delete this file"}>🗑️</span></td>
         <td>{time}</td>
         <td>{date}</td>
       </tr>;

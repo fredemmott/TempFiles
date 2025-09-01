@@ -84,7 +84,12 @@ export default function IndexPage(): ReactNode {
       onUpload={(newFiles) =>
         setFiles([...files, ...newFiles])
       }/>
-    <FilesList files={files} hkdfKeys={hkdfKeys}/>
+    <FilesList
+      files={files}
+      hkdfKeys={hkdfKeys}
+      onDelete={(uuid) =>
+        setFiles(files.filter((file) => file.uuid !== uuid))
+      }/>
     <div className={"footer"}>
       Powered by {' '}
       <a href="https://github.com/fredemmott/TempFiles">

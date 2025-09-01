@@ -7,15 +7,15 @@
 import {File as APIFile} from "../gen/api/files/File";
 import React, {ReactNode} from "react";
 import FilesListRow from "./FilesListRow";
-import * as Base64 from "../Base64";
 import * as FileCrypto from "../FileCrypto";
 
 interface FilesListProps {
   files: APIFile[],
   hkdfKeys: FileCrypto.HKDFKeys | null,
+  onDelete: (uuid: string) => void,
 }
 
-export default function FilesList({files, hkdfKeys}: FilesListProps): ReactNode {
+export default function FilesList({files, hkdfKeys, onDelete}: FilesListProps): ReactNode {
   if (files.length === 0 || hkdfKeys === null) {
     return <div className={"files-list"}>No usable files are available for download.</div>
   }
@@ -26,7 +26,12 @@ export default function FilesList({files, hkdfKeys}: FilesListProps): ReactNode 
     <table className={"files-list-table"}>
       <tbody>
       {files.map((file) =>
-        <FilesListRow key={Base64.encode(file.salt)} file={file} hkdfKeys={hkdfKeys}/>
+        <FilesListRow
+          key={file.uuid}
+          file={file}
+          hkdfKeys={hkdfKeys}
+          onDelete={onDelete}
+        />
       )}
       </tbody>
     </table>
