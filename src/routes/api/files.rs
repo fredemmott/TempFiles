@@ -128,7 +128,7 @@ pub async fn upload(
     match payload.encrypted_data.persist_to(&path).await {
         Ok(_) => (),
         Err(e) if e.kind() == std::io::ErrorKind::CrossesDevices => {
-            payload.encrypted_data.copy_to(&path).await?;
+            payload.encrypted_data.move_copy_to(&path).await?;
         }
         Err(e) => return Err(ApiError::IOError(e)),
     }
