@@ -125,7 +125,13 @@ pub async fn upload(
     let uuid = Uuid::new_v4();
     let path = uploaded_file_path(&uuid)?;
 
-    payload.encrypted_data.persist_to(path).await?;
+    match payload.encrypted_data.persist_to(&path).await {
+        Ok(_) => (),
+        Err(e) if e.kind() == std::io::ErrorKind::CrossesDevices => {
+            payload.encrypted_data.copy_to(&path).await?;
+        }
+        Err(e) => return Err(ApiError::IOError(e)),
+    }
     let user_id = session.user_id();
     let passkey_id = if payload.is_e2ee {
         Some(session.passkey_id())
