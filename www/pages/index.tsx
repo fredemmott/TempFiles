@@ -14,7 +14,6 @@ import {Navigate, useNavigate} from "react-router";
 import * as FileCrypto from "../FileCrypto"
 import FilesList from "../components/FilesList";
 import FilePicker from "../components/FilePicker";
-import {EncryptedFile} from "../FileCrypto";
 import PendingFile from "../PendingFile";
 
 type HKDFKeys = FileCrypto.HKDFKeys;
@@ -120,19 +119,19 @@ export default function IndexPage(): ReactNode {
           setPendingFiles((prev) => [...prev, ...added]);
         }}
     />
+    <NewFilesList
+      files={pendingFiles}
+      onUpload={(file) => {
+        setFiles((prev) => [file, ...prev]);
+        setPendingFiles((prev) => prev.filter((it) => it.uuid !== file.uuid));
+      }}
+    />
     <FilesList
       files={files}
       hkdfKeys={hkdfKeys}
       onDelete={(uuid) =>
         setFiles(files.filter((file) => file.uuid !== uuid))
       }
-    />
-    <NewFilesList
-      files={pendingFiles}
-      onUpload={(file) => {
-        // TODO: gradually remove the new file from the pending list
-        setFiles((prev) => [file, ...prev]);
-      }}
     />
     <div className={"footer"}>
       Powered by {' '}

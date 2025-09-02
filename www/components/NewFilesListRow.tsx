@@ -42,8 +42,7 @@ export default function NewFilesListRow({file, onUpload}: Props): ReactNode {
 
   const committed = uploadState.clicked;
 
-
-  return <li className={"newly-uploaded-file"}>
+  return <li className={"pending-file"}>
     <div className={"encryption-state"}>
       {file.encryptedFile ? "🔐" : "⏳🔓"}
     </div>
@@ -76,7 +75,7 @@ export default function NewFilesListRow({file, onUpload}: Props): ReactNode {
           })
         }
       </fieldset>
-      <input type={"submit"} value={"Upload"} disabled={committed} onClick={(e) => {
+      <input type={"submit"} value={"💾 Save"} disabled={committed} onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
         setUploadState((prev) => ({...prev, clicked: true}));

@@ -18,7 +18,10 @@ export default function NewFilesList({files, onUpload}: Props): ReactNode {
   if (files.length === 0) {
     return null;
   }
-  return <ul className={"new-files-list"}>
-    {files.map((f) => <NewFilesListRow key={f.uuid} file={f} onUpload={onUpload}/>)}
-  </ul>;
+  return <div className={"new-files-section"}>
+    <h2>Pending files</h2>
+    <ul className={"new-files-list"}>
+      {files.map((f) => <NewFilesListRow key={f.uuid} file={f} onUpload={onUpload}/>)}
+    </ul>
+  </div>;
 }

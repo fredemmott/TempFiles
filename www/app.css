@@ -118,3 +118,14 @@ body {
 .clickable-icon {
   cursor: pointer;
 }
+
+@keyframes new-upload-highlight {
+  0% { background-color: #7f7; }
+  50% { background-color: #7f7; }
+  100% { background-color: revert-layer; }
+}
+
+.new-file {
+  animation-name: new-upload-highlight;
+  animation-duration: 2s;
+}

@@ -111,10 +111,11 @@ export default function FilesListRow({file, hkdfKeys, onDelete}: FileListEntryPr
     case "loaded":
       const isNew = (file.created_at > (Session.login_time().getTime() / 1000));
       const isRecent = (file.created_at > (now.getTime() / 1000) - (60 * 60));
-      return <tr>
+      return <tr className={isNew ? "new-file" : ""}>
         {file.is_e2ee ? <td title="File uses E2EE">🔐</td> : <td title="File does not use E2EE">🚨</td>}
         <td>
-          {isNew ? <span className={"file-badge file-badge-new"}>🆕</span> : null}
+          {isRecent ? <span className={"file-badge file-badge-recent"}>🆕</span> : null}
+          {isNew ? <span className={"file-badge file-badge-new"}>✅</span> : null}
           <a href="#" onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -130,7 +131,6 @@ export default function FilesListRow({file, hkdfKeys, onDelete}: FileListEntryPr
               }
             });
           }}>{decryptedFilename}</a>
-          {isRecent ? <span className={"file-badge file-badge-recent"}>✨</span> : null}
         </td>
         <td><span
           className={"clickable-icon"}
