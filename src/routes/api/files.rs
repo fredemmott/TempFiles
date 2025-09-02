@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  *
  */
-
+use std::fs::exists;
 use crate::api_error::ApiError;
 use crate::app_db::AppDb;
 use crate::session::Session;
@@ -79,6 +79,7 @@ pub async fn list(
 #[derive(TS, FromForm)]
 #[ts(export_to = "api/files/UploadRequest.ts")]
 pub struct UploadRequest<'r> {
+    pub uuid: Uuid,
     #[ts(type = "'true' | 'false'")]
     pub is_e2ee: bool,
     pub salt: String,
@@ -87,6 +88,9 @@ pub struct UploadRequest<'r> {
     pub encrypted_filename: String,
     #[ts(type = "Blob")]
     pub encrypted_data: TempFile<'r>,
+    pub max_downloads: Option<i32>,
+    #[ts(type = "number | null")]
+    pub expires_at: Option<i64>,
 }
 
 #[derive(Serialize, TS)]
@@ -114,8 +118,10 @@ pub async fn upload(
     mut payload: Form<UploadRequest<'_>>,
     session: Session,
 ) -> Result<Json<UploadResponse>, ApiError> {
-    let uuid = Uuid::new_v4();
-    let path = uploaded_file_path(&uuid)?;
+    let path = uploaded_file_path(&payload.uuid)?;
+    if exists(&path)? {
+        return Err(ApiError::BadRequestError("UUID already used".to_string()));
+    }
 
     match payload.encrypted_data.persist_to(&path).await {
         Ok(_) => (),
@@ -133,25 +139,28 @@ pub async fn upload(
 
     query!(
         r#"
-    INSERT INTO files (uuid, user_id, e2ee_passkey_id, salt, filename_iv, data_iv, encrypted_filename)
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+    INSERT INTO files (uuid, user_id, e2ee_passkey_id, salt, filename_iv, data_iv, encrypted_filename,
+    downloads_remaining, expires_at)
+    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, DATETIME(?9, 'unixepoch'))
         "#,
-        uuid,
+        payload.uuid,
         user_id,
         passkey_id,
         payload.salt,
         payload.filename_iv,
         payload.data_iv,
         payload.encrypted_filename,
+        payload.max_downloads,
+        payload.expires_at,
     ).execute(&mut **db).await?;
 
-    let row = query!("SELECT created_at FROM files WHERE uuid = ?1", uuid)
+    let row = query!("SELECT created_at FROM files WHERE uuid = ?1", payload.uuid)
         .fetch_one(&mut **db)
         .await?;
 
     Ok(Json(UploadResponse {
         file: File {
-            uuid,
+            uuid: payload.uuid,
             is_e2ee: payload.is_e2ee,
             salt: payload.salt.clone(),
             filename_iv: payload.filename_iv.clone(),

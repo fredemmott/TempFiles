@@ -6,6 +6,7 @@
 
 import * as Base64 from "./Base64";
 import * as Session from "./Session";
+import * as UploadFile from "./api/files/upload";
 
 const DEBUG_CRYPTO_SECRETS = false;
 const EXTRACTABLE_CRYPTO_KEYS = DEBUG_CRYPTO_SECRETS;
@@ -15,7 +16,7 @@ export interface HKDFKeys {
   server_trust_key: CryptoKey,
 }
 
-async function encrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+async function encryptBinaryData(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
   if (DEBUG_CRYPTO_SECRETS) {
     const exported_key = await crypto.subtle.exportKey('raw', key);
     console.log("encrypting", {
@@ -34,12 +35,12 @@ async function encrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data: Uint8A
   ));
 }
 
-export async function encryptFileContents(params: CryptoParams, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
-  return await encrypt(params.key, params.data_iv, data);
+async function encryptFileContents(params: CryptoParams, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+  return await encryptBinaryData(params.key, params.data_iv, data);
 }
 
-export async function encryptFileName(params: CryptoParams, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
-  return await encrypt(params.key, params.filename_iv, data);
+async function encryptFileName(params: CryptoParams, filename: string): Promise<Uint8Array<ArrayBuffer>> {
+  return await encryptBinaryData(params.key, params.filename_iv, new TextEncoder().encode(filename));
 }
 
 export async function decrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
@@ -96,14 +97,14 @@ export async function deriveKey(hkdf_key: CryptoKey, salt: Uint8Array<ArrayBuffe
   return key;
 }
 
-export interface CryptoParams {
+interface CryptoParams {
   salt: Uint8Array<ArrayBuffer>,
   key: CryptoKey,
   filename_iv: Uint8Array<ArrayBuffer>,
   data_iv: Uint8Array<ArrayBuffer>,
 }
 
-export async function generateParametersForNewFile(hkdf_key: CryptoKey): Promise<CryptoParams> {
+async function generateParametersForNewFile(hkdf_key: CryptoKey): Promise<CryptoParams> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const key = await deriveKey(hkdf_key, salt);
   const params: CryptoParams = {
@@ -120,3 +121,41 @@ export async function generateParametersForNewFile(hkdf_key: CryptoKey): Promise
   }
   return params;
 }
+
+export type EncryptedFile = Omit<UploadFile.Request, "expires_at" | "max_downloads" | "uuid">;
+
+export async function encrypt(
+  file: File, hkdfKeys: HKDFKeys): Promise<EncryptedFile> {
+  let isE2EE = true;
+  let hkdfKey = hkdfKeys.e2ee_key;
+  if (hkdfKey === null) {
+    isE2EE = false;
+    hkdfKey = hkdfKeys.server_trust_key;
+  }
+
+  const crypto_params = await generateParametersForNewFile(hkdfKey);
+  const encrypted_filename = await encryptFileName(crypto_params, file.name);
+  const unencrypted_data = new Uint8Array(await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve(new Uint8Array(reader.result as ArrayBuffer));
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  }));
+
+  const encrypted_data = await encryptFileContents(
+    crypto_params,
+    unencrypted_data,
+  );
+
+  return {
+    is_e2ee: isE2EE,
+    salt: crypto_params.salt,
+    filename_iv: crypto_params.filename_iv,
+    data_iv: crypto_params.data_iv,
+    encrypted_filename,
+    encrypted_data,
+  };
+}
+

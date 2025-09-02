@@ -5,36 +5,12 @@
  */
 
 import React, {ReactNode, useRef, useState} from "react";
-import {File as APIFile} from "../api/files/File";
-import * as FileUpload from "../FileUpload";
-import * as FileCrypto from "../FileCrypto";
-
-async function uploadDroppedFiles(e: React.DragEvent<HTMLDivElement>, hkdfKeys: FileCrypto.HKDFKeys): Promise<APIFile[]> {
-  e.preventDefault();
-  e.stopPropagation();
-
-  const files = e.dataTransfer.files;
-  if (files.length === 0) {
-    return [];
-  }
-  return await FileUpload.multipleFiles(files, hkdfKeys);
-}
 
 interface FilePickerProps {
-  hkdfKeys: FileCrypto.HKDFKeys | null,
-  onUpload: (files: APIFile[]) => void,
+  onFilesPicked: (files: File[]) => void,
 }
 
-export default function FilePicker({hkdfKeys, onUpload}: FilePickerProps): ReactNode {
-  if (hkdfKeys === null) {
-    return <div className={"file-picker"}>
-      <div className="file-picker-content">
-        <div className={"file-picker-icon"}>⏳</div>
-        <div className={"file-picker-text"}>Loading keys...</div>
-      </div>
-    </div>;
-  }
-
+export default function FilePicker({onFilesPicked}: FilePickerProps): ReactNode {
   const [isDragOver, setIsDragOver] = useState(false);
 
   const preventDefault = (e: any) => {
@@ -54,7 +30,8 @@ export default function FilePicker({hkdfKeys, onUpload}: FilePickerProps): React
         if (files === null) {
           return;
         }
-        FileUpload.multipleFiles(files, hkdfKeys).then(onUpload);
+
+        onFilesPicked(Array.from(files));
       }}
     />;
 
@@ -74,8 +51,13 @@ export default function FilePicker({hkdfKeys, onUpload}: FilePickerProps): React
       }
     }}
     onDrop={(e) => {
-      uploadDroppedFiles(e, hkdfKeys).then(onUpload);
+      preventDefault(e);
       setIsDragOver(false);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length === 0) {
+        return;
+      }
+      onFilesPicked(files);
     }}
     onClick={() => {
       if (inputRef.current) {

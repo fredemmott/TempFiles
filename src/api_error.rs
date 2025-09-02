@@ -13,6 +13,7 @@ use webauthn_rs::prelude::WebauthnError;
 pub enum ApiError {
     NotFoundError(),
     InvalidSessionError(),
+    BadRequestError(String),
     DatabaseError(sqlx::Error),
     WebauthnError(WebauthnError),
     IOError(std::io::Error),
@@ -75,6 +76,13 @@ impl<'r> Responder<'r, 'static> for ApiError {
                         .respond_to(r)
                 } else {
                     Status::InternalServerError.respond_to(r)
+                }
+            }
+            ApiError::BadRequestError(s) => {
+                if cfg!(debug_assertions) {
+                    (Status::BadRequest, format!("Bad request: {}", s)).respond_to(r)
+                } else {
+                    Status::BadRequest.respond_to(r)
                 }
             }
         }

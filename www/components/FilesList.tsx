@@ -4,7 +4,7 @@
  *
  */
 
-import {File as APIFile} from "../api/files/File";
+import APIFile from "../api/files/File";
 import React, {ReactNode} from "react";
 import FilesListRow from "./FilesListRow";
 import * as FileCrypto from "../FileCrypto";

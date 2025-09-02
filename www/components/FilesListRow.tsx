@@ -4,11 +4,12 @@
  *
  */
 
-import {File as APIFile} from "../api/files/File";
+import APIFile from "../api/files/File";
 import React, {ReactNode, useEffect, useState} from "react";
 import * as DeleteFile from "../api/files/delete";
 import * as DownloadFile from "../api/files/download";
 import * as FileCrypto from "../FileCrypto";
+import * as Session from "../Session"
 
 async function downloadFile(api_file: APIFile, key: CryptoKey, filename: string) {
   const encrypted = await DownloadFile.exec({uuid: api_file.uuid});
@@ -108,9 +109,12 @@ export default function FilesListRow({file, hkdfKeys, onDelete}: FileListEntryPr
         <td>{date}</td>
       </tr>;
     case "loaded":
+      const isNew = (file.created_at > (Session.login_time().getTime() / 1000));
+      const isRecent = (file.created_at > (now.getTime() / 1000) - (60 * 60));
       return <tr>
         {file.is_e2ee ? <td title="File uses E2EE">🔐</td> : <td title="File does not use E2EE">🚨</td>}
         <td>
+          {isNew ? <span className={"file-badge file-badge-new"}>🆕</span> : null}
           <a href="#" onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -125,7 +129,9 @@ export default function FilesListRow({file, hkdfKeys, onDelete}: FileListEntryPr
                 alert(`An error occurred downloading a file: ${ex}`);
               }
             });
-          }}>{decryptedFilename}</a></td>
+          }}>{decryptedFilename}</a>
+          {isRecent ? <span className={"file-badge file-badge-recent"}>✨</span> : null}
+        </td>
         <td><span
           className={"clickable-icon"}
           onClick={

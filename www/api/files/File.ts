@@ -1,7 +1,7 @@
 import {File as WireFormat} from "../../gen/api/files/File"
 import * as Base64 from "../../Base64";
 
-export class File {
+export default class File {
   uuid: string;
   created_at: number;
   is_e2ee: boolean;

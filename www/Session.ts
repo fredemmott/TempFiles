@@ -16,6 +16,7 @@ export interface InitData {
 export function initialize(data: InitData): void {
   sessionStorage.clear();
 
+  sessionStorage.setItem("login_time", Date.now().toString());
   sessionStorage.setItem("session_token", data.session);
   sessionStorage.setItem("username", data.username);
   sessionStorage.setItem("server_prf_seed", data.server_prf_seed);
@@ -33,6 +34,10 @@ export function initialize(data: InitData): void {
 
 export function is_logged_in(): boolean {
   return sessionStorage.getItem("username") !== null;
+}
+
+export function login_time(): Date {
+  return new Date(Number.parseInt(sessionStorage.getItem("login_time")!));
 }
 
 export function supports_e2ee(): boolean {

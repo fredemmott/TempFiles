@@ -8,11 +8,14 @@ import React, {ReactNode, useEffect, useState} from 'react'
 import * as Session from '../Session'
 import * as ListFiles from '../api/files/list'
 import * as DeleteAllFiles from '../api/files/delete_all'
-import {File as APIFile} from '../api/files/File'
+import NewFilesList from "../components/NewFilesList"
+import APIFile from '../api/files/File'
 import {Navigate, useNavigate} from "react-router";
 import * as FileCrypto from "../FileCrypto"
 import FilesList from "../components/FilesList";
 import FilePicker from "../components/FilePicker";
+import {EncryptedFile} from "../FileCrypto";
+import PendingFile from "../PendingFile";
 
 type HKDFKeys = FileCrypto.HKDFKeys;
 
@@ -43,6 +46,7 @@ export default function IndexPage(): ReactNode {
     return <Navigate to="/login"/>;
   }
   const [files, setFiles] = useState<APIFile[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [hkdfKeys, setHKDFKeys] = useState<HKDFKeys | null>(null);
   const navigate = useNavigate();
 
@@ -50,6 +54,13 @@ export default function IndexPage(): ReactNode {
     FileCrypto.getHKDFKeys().then(setHKDFKeys);
     ListFiles.exec().then((response) => setFiles(response.files));
   }, []);
+
+  if (!hkdfKeys) {
+    return <div className={"index-page index-page-loading"}>
+      <div className={"index-page-loading-icon"}>⏳</div>
+      <div className={"index-page-loading-text"}>Loading...</div>
+    </div>;
+  }
 
   return <div className={"index-page"}>
     <div className={"header"}>
@@ -80,16 +91,49 @@ export default function IndexPage(): ReactNode {
       </div>
     </div>
     <FilePicker
-      hkdfKeys={hkdfKeys}
-      onUpload={(newFiles) =>
-        setFiles([...files, ...newFiles])
-      }/>
+      onFilesPicked={
+        (pickedFiles) => {
+          const added: PendingFile[] = pickedFiles.map((file) => {
+            const uuid = crypto.randomUUID();
+            const metadata: PendingFile = {
+              uuid,
+              fileName: file.name,
+              encryptedFile: null,
+            };
+
+            FileCrypto.encrypt(file, hkdfKeys).then(
+              (encryptedFile) =>
+                setPendingFiles((prev) => prev.map(
+                  (it: PendingFile) => {
+                    if (it.uuid !== uuid) {
+                      return it;
+                    }
+                    return {
+                      ...it,
+                      encryptedFile,
+                    };
+                  }
+                )));
+
+            return metadata;
+          });
+          setPendingFiles((prev) => [...prev, ...added]);
+        }}
+    />
     <FilesList
       files={files}
       hkdfKeys={hkdfKeys}
       onDelete={(uuid) =>
         setFiles(files.filter((file) => file.uuid !== uuid))
-      }/>
+      }
+    />
+    <NewFilesList
+      files={pendingFiles}
+      onUpload={(file) => {
+        // TODO: gradually remove the new file from the pending list
+        setFiles((prev) => [file, ...prev]);
+      }}
+    />
     <div className={"footer"}>
       Powered by {' '}
       <a href="https://github.com/fredemmott/TempFiles">
