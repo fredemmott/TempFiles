@@ -19,9 +19,7 @@ export default function PendingFilesList({files, onUpload}: Props): ReactNode {
     return null;
   }
   return <div className={"new-files-section"}>
-    <h2>Pending files</h2>
-    <ul className={"new-files-list"}>
-      {files.map((f) => <PendingFilesListRow key={f.uuid} file={f} onUpload={onUpload}/>)}
-    </ul>
+    <h2>⚠️ Unsaved files</h2>
+    {files.map((f) => <PendingFilesListRow key={f.uuid} file={f} onUpload={onUpload}/>)}
   </div>;
 }

@@ -42,12 +42,16 @@ export default function PendingFilesListRow({file, onUpload}: Props): ReactNode 
 
   const committed = uploadState.clicked;
 
-  return <li className={"pending-file"}>
-    <div className={"encryption-state"}>
-      {file.encryptedFile ? "🔐" : "⏳🔓"}
-    </div>
-    <div className={"file-name"}>{file.fileName}</div>
-    <form className={"options"}>
+  return <div className={"pending-file"}>
+    <form className={"pending-file-options"}>
+      <h3 className={"pending-file-header"}>
+        <input type={"submit"} value={"💾 Save"} disabled={committed} onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setUploadState((prev) => ({...prev, clicked: true}));
+        }}/>
+        <span className={"file-name"}>{file.fileName}</span>
+      </h3>
       <input
         id={singleDownloadId}
         type={"checkbox"}
@@ -75,11 +79,6 @@ export default function PendingFilesListRow({file, onUpload}: Props): ReactNode 
           })
         }
       </fieldset>
-      <input type={"submit"} value={"💾 Save"} disabled={committed} onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setUploadState((prev) => ({...prev, clicked: true}));
-      }}/>
     </form>
-  </li>;
+  </div>;
 }

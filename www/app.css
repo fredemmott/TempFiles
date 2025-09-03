@@ -129,3 +129,24 @@ body {
   animation-name: new-upload-highlight;
   animation-duration: 2s;
 }
+
+.pending-file-header {
+  display: flex;
+  flex-direction: row;
+  align-self: center;
+  margin-bottom: 1em;
+  gap: 1ex;
+}
+
+@keyframes pending-file-highlight {
+  0% { outline-color: #0c0 }
+  60% { outline-color: #0c0 }
+  100% { outline-color: revert-layer }
+}
+
+.pending-file-header input {
+  outline-offset: 0.2em;
+  outline: transparent solid 4px;
+  animation-name: pending-file-highlight;
+  animation-duration: 2s;
+}
