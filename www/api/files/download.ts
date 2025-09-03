@@ -9,7 +9,13 @@ import * as APICall from "../APICall";
 
 export type {DownloadRequest as Request}
 
-export async function exec(request: DownloadRequest): Promise<Uint8Array<ArrayBuffer>> {
+export interface Response {
+  encrypted_contents: Uint8Array<ArrayBuffer>,
+  is_final_download: boolean,
+
+}
+
+export async function exec(request: DownloadRequest): Promise<Response> {
   const response = await APICall.authenticated(
     "/api/files/download",
     {
@@ -19,5 +25,8 @@ export async function exec(request: DownloadRequest): Promise<Uint8Array<ArrayBu
       }
     },
   );
-  return await response.bytes() as Uint8Array<ArrayBuffer>;
+  return {
+    encrypted_contents: await response.bytes() as Uint8Array<ArrayBuffer>,
+    is_final_download: response.headers.get("X-Final-Download") === "true",
+  };
 }

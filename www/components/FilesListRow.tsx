@@ -11,15 +11,16 @@ import * as DownloadFile from "../api/files/download";
 import * as FileCrypto from "../FileCrypto";
 import * as Session from "../Session"
 
-async function downloadFile(api_file: APIFile, key: CryptoKey, filename: string) {
-  const encrypted = await DownloadFile.exec({uuid: api_file.uuid});
-  const decrypted = await FileCrypto.decrypt(key, api_file.data_iv, encrypted);
+async function downloadFile(api_file: APIFile, key: CryptoKey, filename: string): Promise<"download-complete" | "final-download-complete"> {
+  const response = await DownloadFile.exec({uuid: api_file.uuid});
+  const decrypted = await FileCrypto.decrypt(key, api_file.data_iv, response.encrypted_contents);
   const url = URL.createObjectURL(new Blob([decrypted]));
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+  return response.is_final_download ? "final-download-complete" : "download-complete";
 }
 
 async function deleteFile(uuid: string, name: string): Promise<"deleted" | "cancelled"> {
@@ -123,13 +124,19 @@ export default function FilesListRow({file, hkdfKeys, onDelete}: FileListEntryPr
               file,
               key!,
               decryptedFilename!,
-            ).catch((ex) => {
-              if (ex instanceof Response) {
-                alert(`An error occurred downloading a file: ${ex.status} ${ex.statusText}`);
-              } else {
-                alert(`An error occurred downloading a file: ${ex}`);
-              }
-            });
+            )
+              .then((result) => {
+                if (result === 'final-download-complete') {
+                  onDelete(file.uuid);
+                }
+              })
+              .catch((ex) => {
+                if (ex instanceof Response) {
+                  alert(`An error occurred downloading a file: ${ex.status} ${ex.statusText}`);
+                } else {
+                  alert(`An error occurred downloading a file: ${ex}`);
+                }
+              });
           }}>{decryptedFilename}</a>
         </td>
         <td><span

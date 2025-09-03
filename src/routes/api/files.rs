@@ -3,17 +3,18 @@
  * SPDX-License-Identifier: MIT
  *
  */
-use std::fs::exists;
 use crate::api_error::ApiError;
 use crate::app_db::AppDb;
 use crate::session::Session;
 use rocket::form::Form;
 use rocket::fs::{NamedFile, TempFile};
+use rocket::http::Header;
 use rocket::serde::json::Json;
 use rocket_db_pools::Connection;
 use rocket_db_pools::sqlx::prelude::*;
 use rocket_db_pools::sqlx::query;
 use serde::{Deserialize, Serialize};
+use std::fs::exists;
 use std::path::PathBuf;
 use ts_rs::TS;
 use uuid::Uuid;
@@ -177,12 +178,27 @@ pub struct DownloadRequest {
     pub uuid: Uuid,
 }
 
+#[derive(Responder)]
+pub struct DownloadResponse {
+    body: NamedFile,
+    x_final_download: Header<'static>,
+}
+
+impl DownloadResponse {
+    pub fn new(body: NamedFile, final_download: bool) -> Self {
+        Self {
+            body,
+            x_final_download: Header::new("X-Final-Download", final_download.to_string()),
+        }
+    }
+}
+
 #[post("/api/files/download", data = "<payload>")]
 pub async fn download(
     mut db: Connection<AppDb>,
     payload: Json<DownloadRequest>,
     session: Session,
-) -> Result<NamedFile, ApiError> {
+) -> Result<DownloadResponse, ApiError> {
     let user_id = session.user_id();
     let row = query!(
         r#"
@@ -206,11 +222,14 @@ pub async fn download(
             payload.uuid
         )
         .execute(&mut **db)
-            .await?;
+        .await?;
     }
 
     let path = uploaded_file_path(&payload.uuid)?;
-    Ok(NamedFile::open(path).await?)
+    Ok(DownloadResponse::new(
+        NamedFile::open(path).await?,
+        row.downloads_remaining.map_or(false, |x| x == 1),
+    ))
 }
 
 #[post("/api/files/delete_all")]
@@ -260,7 +279,9 @@ pub async fn delete(
         "DELETE FROM files WHERE uuid = ?1 AND user_id = ?2",
         file_uuid,
         user_id,
-    ).execute(&mut **db).await?;
+    )
+    .execute(&mut **db)
+    .await?;
     if result.rows_affected() == 0 {
         return Err(ApiError::NotFoundError());
     }
