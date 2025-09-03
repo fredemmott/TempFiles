@@ -22,7 +22,7 @@ interface UploadState {
 export default function PendingFilesListRow({file, onUpload}: Props): ReactNode {
   type Expiration = "1 hour" | "24 hours" | "1 week" | "never";
   const [expiration, setExpiration] = useState<Expiration>("24 hours");
-  const [singleDownload, setSingleDownload] = useState<boolean>(true);
+  const [singleDownload, setSingleDownload] = useState<boolean>(false);
   const [uploadState, setUploadState] = useState<UploadState>({clicked: false, progress: "not-started"});
   const singleDownloadId = useId();
   const lifetimeId = useId();
