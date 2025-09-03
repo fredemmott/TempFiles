@@ -184,18 +184,29 @@ pub async fn download(
     session: Session,
 ) -> Result<NamedFile, ApiError> {
     let user_id = session.user_id();
-    // Deleting the salt is effectively deleting it, as we can't decrypt.
-    //
-    // We might keep the row if we haven't cleaned up the filesystem yet
     let row = query!(
-        "SELECT salt FROM files WHERE uuid = ?1 AND user_id = ?2",
+        r#"
+        SELECT downloads_remaining
+        FROM files
+        WHERE uuid = ?1
+        AND user_id = ?2
+        AND salt IS NOT NULL
+        AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+        AND (downloads_remaining IS NULL or downloads_remaining > 0)
+        "#,
         payload.uuid,
         user_id,
     )
     .fetch_one(&mut **db)
     .await?;
-    if row.salt.is_none() {
-        return Err(ApiError::NotFoundError());
+
+    if row.downloads_remaining.is_some() {
+        query!(
+            "UPDATE files SET downloads_remaining = downloads_remaining - 1 WHERE uuid = ?1",
+            payload.uuid
+        )
+        .execute(&mut **db)
+            .await?;
     }
 
     let path = uploaded_file_path(&payload.uuid)?;
