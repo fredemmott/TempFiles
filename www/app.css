@@ -130,23 +130,49 @@ body {
   animation-duration: 2s;
 }
 
+@keyframes pending-upload-highlight {
+  0% { background-color: #fdb;}
+  50% { background-color: #fdb;}
+  100% { background-color: revert-layer; }
+}
+
+.pending-file form {
+  background-color: #fed;
+  margin-left: 1em;
+  border: 1px solid #ccc;
+  border-radius: 0.5em;
+  padding: 1em;
+  width: fit-content;
+  animation-name: pending-upload-highlight;
+  animation-duration: 2s;
+
+  fieldset, legend {
+    margin-top: 0.5em;
+  }
+  fieldset {
+    width: fit-content;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+  }
+  input[type="submit"] {
+    margin-top: 1em;
+    font-size: 120%;
+    border: 1px solid #ccc;
+    padding: 1ex;
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+  }
+}
+
 .pending-file-header {
   display: flex;
   flex-direction: row;
   align-self: center;
   margin-bottom: 1em;
   gap: 1ex;
-}
 
-@keyframes pending-file-highlight {
-  0% { outline-color: #0c0 }
-  60% { outline-color: #0c0 }
-  100% { outline-color: revert-layer }
-}
-
-.pending-file-header input {
-  outline-offset: 0.2em;
-  outline: transparent solid 4px;
-  animation-name: pending-file-highlight;
-  animation-duration: 2s;
+  .file-name {
+    font-family: monospace;
+  }
 }
