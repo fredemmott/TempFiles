@@ -11,8 +11,8 @@ import * as StartRegistration from "../api/register/start";
 import * as FinishRegistration from "../api/register/finish";
 import * as Base64 from "../Base64";
 
-async function createWebauthnCredential(server_data: StartRegistration.Response) {
-  let challenge = server_data.challenge as any;
+async function createWebauthnCredential(serverData: StartRegistration.Response) {
+  let challenge = serverData.challenge as any;
   challenge.publicKey.user.id = Base64.decode(challenge.publicKey.user.id);
   challenge.publicKey.challenge = Base64.decode(challenge.publicKey.challenge);
   challenge.publicKey.hints = ["hybrid"];
@@ -45,8 +45,10 @@ async function register(token: string, setState: (state: States.Any) => void): P
   let credential: Credential | null = null;
   try {
     credential = await createWebauthnCredential(response);
-  } catch (untyped_ex) {
-    const e = untyped_ex as DOMException;
+  } catch (e) {
+    if (!(e instanceof DOMException)) {
+      throw e;
+    }
     switch (e.name) {
       case "AbortError":
         setState({state: "local-error", message: "Cancelled by user"});

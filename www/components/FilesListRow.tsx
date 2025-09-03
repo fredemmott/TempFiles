@@ -11,9 +11,9 @@ import * as DownloadFile from "../api/files/download";
 import * as FileCrypto from "../FileCrypto";
 import * as Session from "../Session"
 
-async function downloadFile(api_file: APIFile, key: CryptoKey, filename: string): Promise<"download-complete" | "final-download-complete"> {
-  const response = await DownloadFile.exec({uuid: api_file.uuid});
-  const decrypted = await FileCrypto.decrypt(key, api_file.data_iv, response.encrypted_contents);
+async function downloadFile(apiFile: APIFile, key: CryptoKey, filename: string): Promise<"download-complete" | "final-download-complete"> {
+  const response = await DownloadFile.exec({uuid: apiFile.uuid});
+  const decrypted = await FileCrypto.decrypt(key, apiFile.data_iv, response.encrypted_contents);
   const url = URL.createObjectURL(new Blob([decrypted]));
   const link = document.createElement('a');
   link.href = url;
@@ -47,24 +47,24 @@ export default function FilesListRow({file, hkdfKeys, onDelete}: FileListEntryPr
 
   useEffect(() => {
     const load = async () => {
-      let file_key = null;
+      let fileKey = null;
       if (file.is_e2ee) {
-        if (!hkdfKeys.e2ee_key) {
+        if (!hkdfKeys.e2eeKey) {
           setState("requires_e2ee");
           return;
         }
-        file_key = await FileCrypto.deriveKey(hkdfKeys.e2ee_key, file.salt);
-        setKey(file_key);
+        fileKey = await FileCrypto.deriveKey(hkdfKeys.e2eeKey, file.salt);
+        setKey(fileKey);
       } else {
-        file_key = await FileCrypto.deriveKey(hkdfKeys.server_trust_key, file.salt);
-        setKey(file_key);
+        fileKey = await FileCrypto.deriveKey(hkdfKeys.serverTrustKey, file.salt);
+        setKey(fileKey);
       }
-      if (file_key === null) {
+      if (fileKey === null) {
         setState("no_key");
         return;
       }
-      let decrypted_filename = await FileCrypto.decrypt(file_key, file.filename_iv, file.encrypted_filename);
-      setDecryptedFilename(new TextDecoder().decode(decrypted_filename));
+      let decryptedFilename = await FileCrypto.decrypt(fileKey, file.filename_iv, file.encrypted_filename);
+      setDecryptedFilename(new TextDecoder().decode(decryptedFilename));
     };
     load().then(() => setState("loaded"));
   }, []);

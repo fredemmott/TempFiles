@@ -12,15 +12,15 @@ const DEBUG_CRYPTO_SECRETS = false;
 const EXTRACTABLE_CRYPTO_KEYS = DEBUG_CRYPTO_SECRETS;
 
 export interface HKDFKeys {
-  e2ee_key: CryptoKey | null,
-  server_trust_key: CryptoKey,
+  e2eeKey: CryptoKey | null,
+  serverTrustKey: CryptoKey,
 }
 
 async function encryptBinaryData(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
   if (DEBUG_CRYPTO_SECRETS) {
-    const exported_key = await crypto.subtle.exportKey('raw', key);
+    const exportedKey = await crypto.subtle.exportKey('raw', key);
     console.log("encrypting", {
-      key: Base64.encode(new Uint8Array(exported_key)),
+      key: Base64.encode(new Uint8Array(exportedKey)),
       iv: Base64.encode(iv),
     });
   }
@@ -63,13 +63,13 @@ export async function decrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data:
 }
 
 export async function getHKDFKeys(): Promise<HKDFKeys> {
-  let [e2ee_key, server_trust_key] = [
+  let [e2eeKey, serverTrustKey] = [
     await Session.deriveE2EEKey(),
     await Session.deriveServerTrustKey(),
   ];
   return {
-    e2ee_key,
-    server_trust_key,
+    e2eeKey: e2eeKey,
+    serverTrustKey: serverTrustKey,
   };
 }
 
@@ -127,10 +127,10 @@ export type EncryptedFile = Omit<UploadFile.Request, "expires_at" | "max_downloa
 export async function encrypt(
   file: File, hkdfKeys: HKDFKeys): Promise<EncryptedFile> {
   let isE2EE = true;
-  let hkdfKey = hkdfKeys.e2ee_key;
+  let hkdfKey = hkdfKeys.e2eeKey;
   if (hkdfKey === null) {
     isE2EE = false;
-    hkdfKey = hkdfKeys.server_trust_key;
+    hkdfKey = hkdfKeys.serverTrustKey;
   }
 
   const crypto_params = await generateParametersForNewFile(hkdfKey);

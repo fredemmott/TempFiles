@@ -27,7 +27,7 @@ namespace States {
 
   export interface PromptingUser {
     state: "prompting-user";
-    server_data: StartLogin.Response,
+    serverData: StartLogin.Response,
   }
 
   export interface SubmittingChallengeResponse {
@@ -66,9 +66,9 @@ namespace States {
 class NoCredentialsError extends Error {
 }
 
-async function getWebAuthnCredential(server_data: StartLogin.Response): Promise<PublicKeyCredential> {
-  let challenge: any = WebauthnJSON.parseRequestOptionsFromJSON(server_data.challenge as CredentialRequestOptionsJSON);
-  challenge.publicKey.extensions.prf = {eval: {first: Base64.decode(server_data.prf_seed)}};
+async function getWebAuthnCredential(serverData: StartLogin.Response): Promise<PublicKeyCredential> {
+  let challenge: any = WebauthnJSON.parseRequestOptionsFromJSON(serverData.challenge as CredentialRequestOptionsJSON);
+  challenge.publicKey.extensions.prf = {eval: {first: Base64.decode(serverData.prf_seed)}};
   delete challenge.mediation;
   let credential = await WebauthnJSON.get(challenge as CredentialRequestOptions);
   if (!credential) {
@@ -94,17 +94,20 @@ async function login(setState: (state: States.Any) => void): Promise<void> {
     }
     throw ex;
   }
-  setState({state: "prompting-user", server_data: challenge});
+  setState({state: "prompting-user", serverData: challenge});
   let credential = null;
   try {
     credential = await getWebAuthnCredential(challenge);
-  } catch (untyped_ex) {
-    if (untyped_ex instanceof NoCredentialsError) {
+  } catch (e) {
+    if (e instanceof NoCredentialsError) {
       setAndThrow({state: "no-credentials"});
       return;
     }
 
-    const e = untyped_ex as DOMException;
+    if (!(e instanceof DOMException)) {
+      throw e;
+    }
+
     switch (e.name) {
       case "NotAllowedError":
         setAndThrow({state: "local-error", message: `Permission denied by browser: "${e.message}"`});
