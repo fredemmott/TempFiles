@@ -24,6 +24,8 @@ reimaged machines.
 
 ### Server-side (Rust)
 
+You must serve the site over HTTPS (except for development/testing with `localhost`); this restriction is part of the WebAuthn standard, not this software.  These instructions set up Rust+Rocket as an *HTTP* server, not an *HTTPS* server. You can either follow Rocket's documentation for setting up a server with TLS, or use a reverse proxy like haproxy or nginx.
+
 After cloning the repo, first, create the database. This must be done first as the database queries are validated at
 build time.
 
