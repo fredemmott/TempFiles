@@ -8,7 +8,7 @@ import React, {ReactNode, useEffect, useState} from 'react'
 import * as Session from '../Session'
 import * as ListFiles from '../api/files/list'
 import * as DeleteAllFiles from '../api/files/delete_all'
-import NewFilesList from "../components/NewFilesList"
+import PendingFilesList from "../components/PendingFilesList"
 import APIFile from '../api/files/File'
 import {Navigate, useNavigate} from "react-router";
 import * as FileCrypto from "../FileCrypto"
@@ -119,7 +119,7 @@ export default function IndexPage(): ReactNode {
           setPendingFiles((prev) => [...prev, ...added]);
         }}
     />
-    <NewFilesList
+    <PendingFilesList
       files={pendingFiles}
       onUpload={(file) => {
         setFiles((prev) => [file, ...prev]);

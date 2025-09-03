@@ -19,7 +19,7 @@ interface UploadState {
   progress: "not-started" | "in-progress" | "completed",
 }
 
-export default function NewFilesListRow({file, onUpload}: Props): ReactNode {
+export default function PendingFilesListRow({file, onUpload}: Props): ReactNode {
   type Expiration = "1 hour" | "24 hours" | "1 week" | "never";
   const [expiration, setExpiration] = useState<Expiration>("24 hours");
   const [singleDownload, setSingleDownload] = useState<boolean>(true);
