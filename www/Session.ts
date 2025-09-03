@@ -32,19 +32,19 @@ export function initialize(data: InitData): void {
   }
 }
 
-export function is_logged_in(): boolean {
+export function isLoggedIn(): boolean {
   return sessionStorage.getItem("username") !== null;
 }
 
-export function login_time(): Date {
+export function getLoginTime(): Date {
   return new Date(Number.parseInt(sessionStorage.getItem("login_time")!));
 }
 
-export function supports_e2ee(): boolean {
+export function isE2EESupported(): boolean {
   return sessionStorage.getItem("prf") !== null;
 }
 
-async function hkdf_key(seed: string | null): Promise<CryptoKey | null> {
+async function deriveKey(seed: string | null): Promise<CryptoKey | null> {
   if (seed === null) {
     return null;
   }
@@ -57,19 +57,19 @@ async function hkdf_key(seed: string | null): Promise<CryptoKey | null> {
   );
 }
 
-export async function e2ee_hkdf_key(): Promise<CryptoKey | null> {
-  return await hkdf_key(sessionStorage.getItem("prf"));
+export async function deriveE2EEKey(): Promise<CryptoKey | null> {
+  return await deriveKey(sessionStorage.getItem("prf"));
 }
 
-export async function server_trust_hkdf_key(): Promise<CryptoKey> {
-  const key = await hkdf_key(sessionStorage.getItem("server_prf_seed"));
+export async function deriveServerTrustKey(): Promise<CryptoKey> {
+  const key = await deriveKey(sessionStorage.getItem("server_prf_seed"));
   if (key === null) {
     throw new Error("Server PRF seed is not set");
   }
   return key;
 }
 
-export function token(): string {
+export function getToken(): string {
   const token = sessionStorage.getItem("session_token");
   if (token === null) {
     throw new Error("Session token is not set");

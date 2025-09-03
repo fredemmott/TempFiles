@@ -19,7 +19,7 @@ import PendingFile from "../PendingFile";
 type HKDFKeys = FileCrypto.HKDFKeys;
 
 function E2EEWarning(): ReactNode {
-  if (Session.supports_e2ee()) {
+  if (Session.isE2EESupported()) {
     return <div>✅ End-to-end encryption (E2EE) is active</div>
   }
   return <div style={{borderColor: "red", borderWidth: "3px", borderStyle: "solid"}}>
@@ -41,7 +41,7 @@ function E2EEWarning(): ReactNode {
 
 
 export default function IndexPage(): ReactNode {
-  if (!Session.is_logged_in()) {
+  if (!Session.isLoggedIn()) {
     return <Navigate to="/login"/>;
   }
   const [files, setFiles] = useState<APIFile[]>([]);

@@ -64,8 +64,8 @@ export async function decrypt(key: CryptoKey, iv: Uint8Array<ArrayBuffer>, data:
 
 export async function getHKDFKeys(): Promise<HKDFKeys> {
   let [e2ee_key, server_trust_key] = [
-    await Session.e2ee_hkdf_key(),
-    await Session.server_trust_hkdf_key(),
+    await Session.deriveE2EEKey(),
+    await Session.deriveServerTrustKey(),
   ];
   return {
     e2ee_key,

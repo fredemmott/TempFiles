@@ -10,7 +10,7 @@ import * as FinishLogin from "../api/login/finish";
 import * as Session from "../Session";
 import * as Base64 from "../Base64";
 // Deprecated due to native browser support, but as of 2025-08-28
-// Safari 18.6 is the latest stable Safari on MacOS, and hard-crashes
+// Safari 18.6 is the latest stable Safari on macOS, and hard-crashes
 // the tab in credential.toJSON() or JSON.stringify()
 import * as WebauthnJSON from "@github/webauthn-json/browser-ponyfill"
 import {CredentialRequestOptionsJSON} from "@github/webauthn-json/browser-ponyfill";

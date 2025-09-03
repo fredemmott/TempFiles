@@ -23,7 +23,7 @@ export async function authenticated(
     method: "POST",
     ...options,
     headers: {
-      "Authorization": `Bearer ${Session.token()}`,
+      "Authorization": `Bearer ${Session.getToken()}`,
       ...options.headers,
     }
   }
